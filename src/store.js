@@ -1,5 +1,5 @@
 import { createStore, combineReducers, applyMiddleware } from "redux";
-import { appReducer, mapReducer, devicesReducer, userReducer, groupReducer } from "./reducers";
+import { appReducer, mapReducer, devicesReducer, userReducer, groupReducer, geofenceReducer } from "./reducers";
 import thunk from "redux-thunk";
 
 export const store = createStore(
@@ -8,7 +8,8 @@ export const store = createStore(
         mapReducer,
         devicesReducer,
         userReducer,
-        groupReducer
+        groupReducer,
+        geofenceReducer
     }),
     applyMiddleware(thunk)
 )

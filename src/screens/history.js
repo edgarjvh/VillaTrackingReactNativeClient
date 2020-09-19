@@ -31,8 +31,6 @@ const MaterialHeaderButtons = (props) => {
 
 const loc = new Locale();
 
-const dayMilliseconds = 86340000;
-
 class History extends Component {
 
     constructor(props) {
@@ -42,12 +40,16 @@ class History extends Component {
         let timestampsTo = Number(moment().set({ hour: 23, minute: 59, second: 0, millisecond: 0 }).format('x'));
 
         this.state = {
+            selectedGroup: '0',
             selectedDevice: '0',
             selectedType: 'locations',
             dateFrom: timestampsFrom,
             dateTo: timestampsTo,
             showDate: '',
-            mode: 'date'
+            mode: 'date',
+            groupDevices: this.props.devices.map(device => {
+                return device;
+            })
         }
 
         this.props.navigation.setOptions({
@@ -160,7 +162,7 @@ class History extends Component {
             } = res.data;
 
             if (result === 'OK') {
-                await this.props.setIsLoading(false);                
+                await this.props.setIsLoading(false);
 
                 if (newCount > 0) {
                     await this.props.setDeviceHistoryType(this.state.selectedType);
@@ -191,6 +193,35 @@ class History extends Component {
         });
     }
 
+    onGroupValueChange = (value, index) => {
+        console.log('group: ', value, typeof value)
+
+        if (value === '0') {
+            this.setState({
+                selectedGroup: value,
+                selectedDevice: '0',
+                groupDevices: this.props.devices.map(device => {
+                    return device;
+                })
+            })
+        } else {
+            this.setState({
+                selectedGroup: value,
+                selectedDevice: '0',
+                groupDevices: this.props.devices.filter(device => {
+                    return device.groups.includes(Number(value));
+                })
+            })
+        }
+    }
+
+    onDeviceValueChange = (value, index) => {
+        console.log('device: ', value, typeof value)
+        this.setState({
+            selectedDevice: value
+        })
+    }
+
     render() {
         return (
             <View style={styles.container}>
@@ -209,27 +240,53 @@ class History extends Component {
                 }
                 <View style={styles.stackHeader}>
                     <ScrollView style={styles.mainScrollView}>
+
                         <View style={styles.fieldContainer}>
-                            <Text style={styles.fieldLabel}>{loc.deviceLabel(this.props.lang)} *</Text>
+                            <Text style={styles.fieldLabel}>{loc.groupLabelText(this.props.lang)} *</Text>
                             <Picker
                                 style={styles.fieldInput}
-                                selectedValue={this.state.selectedDevice}
-                                onValueChange={(value, index) => this.setState({ selectedDevice: value })}
+                                selectedValue={this.state.selectedGroup}
+                                onValueChange={this.onGroupValueChange}
                             >
-                                <Picker.Item label={loc.selectPickerItemLabel(this.props.lang)} value='0' />
+                                <Picker.Item label={loc.allPluralText(this.props.lang)} value='0' />
 
                                 {
-                                    this.props.devices.map(device => {
+                                    this.props.groups.map(group => {
                                         return (
-                                            <Picker.Item label={
-                                                device.imei + ' (' + device.license_plate + ') ' + device.vehicle
-                                            } value={device.id.toString()} key={device.id} />
+                                            <Picker.Item
+                                                label={group.name}
+                                                value={group.id.toString()}
+                                                key={group.id} />
                                         )
                                     })
                                 }
                             </Picker>
                         </View>
- 
+
+                        <View style={styles.fieldContainer}>
+                            <Text style={styles.fieldLabel}>{loc.deviceLabel(this.props.lang)} *</Text>
+                            <Picker
+                                style={styles.fieldInput}
+                                selectedValue={this.state.selectedDevice}
+                                onValueChange={this.onDeviceValueChange}
+                            >
+                                <Picker.Item label={loc.selectPickerItemLabel(this.props.lang)} value='0' />
+
+                                {
+                                    this.state.groupDevices.map(device => {
+                                        return (
+                                            <Picker.Item
+                                                label={
+                                                    device.imei + ' (' + device.license_plate + ') ' + device.vehicle
+                                                }
+                                                value={device.id.toString()}
+                                                key={device.id} />
+                                        )
+                                    })
+                                }
+                            </Picker>
+                        </View>
+
                         <View style={styles.fieldContainer}>
                             <Text style={styles.fieldLabel}>{loc.searchTypeLabel(this.props.lang)} *</Text>
                             <Picker
@@ -368,6 +425,7 @@ const mapStateToProps = (state) => {
         lang: state.appReducer.lang,
         serverUrl: state.appReducer.serverUrl,
         devices: state.devicesReducer.devices,
+        groups: state.groupReducer.groups,
         isLoading: state.appReducer.isLoading
     }
 }

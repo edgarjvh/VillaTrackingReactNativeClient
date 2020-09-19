@@ -17,7 +17,8 @@ import {
     setShowingGeofences,
     setShowingPois,
     setShowingUserLocation,
-    setGroups
+    setGroups,
+    setGeofences
 } from './../actions';
 
 const loc = new Locale();
@@ -26,8 +27,9 @@ import { connect } from 'react-redux';
 
 class Main extends Component {
     constructor(props) {
-        super(props);
+        super(props)
 
+        
         this.socket = SocketIOClient(this.props.serverUrl, { jsonp: false, agent: '-', pfx: '-', cert: '-', ca: '-', ciphers: '-', rejectUnauthorized: '-', perMessageDeflate: '-' });
 
         this.onNewGpsData = this.onNewGpsData.bind(this);
@@ -43,7 +45,7 @@ class Main extends Component {
                 }
             }
         )
-            .then(async res => {
+            .then(async res => {                
                 if (res.data.result === 'OK'){
                     const deviceModels = await res.data.deviceModels;
                     const devices = await res.data.devices;
@@ -52,6 +54,7 @@ class Main extends Component {
     
                     await this.props.setDevices(devices);
                     await this.props.setDevicesModels(deviceModels);
+                    await this.props.setGeofences(geofences);
                     await this.props.setGroups(groups);
                 }
             })
@@ -731,5 +734,6 @@ export default connect(mapStateToProps, {
     setShowingGeofences,
     setShowingPois,
     setShowingUserLocation,
-    setGroups
+    setGroups,
+    setGeofences
 })(Main)

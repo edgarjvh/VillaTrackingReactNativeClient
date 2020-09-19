@@ -132,6 +132,9 @@ export default class Locale {
     groupsLabelText = (lang: String = 'es') => {
         return lang === 'es' ? 'Grupos' : 'Groups';
     }
+    groupLabelText = (lang: String = 'es') => {
+        return lang === 'es' ? 'Grupo' : 'Group';
+    }
     historyLabelText = (lang: String = 'es') => {
         return lang === 'es' ? 'Historial' : 'History';
     }
@@ -170,6 +173,12 @@ export default class Locale {
     }
     editDeviceTitle = (lang: String = 'es') => {
         return lang === 'es' ? 'Editar Dispositivo' : 'Edit Device';
+    }
+    addNewGeofenceTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Agregar Nueva Geocerca' : 'Add New Geofence';
+    }
+    editGeofenceTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Editar Geocerca' : 'Edit Geofence';
     }
     deviceInfoTitle = (lang: String = 'es') => {
         return lang === 'es' ? 'Información del Dispositivo' : 'Device Info';
@@ -247,7 +256,7 @@ export default class Locale {
         return lang === 'es' ? 'Historial de Ubicaciones de Hoy' : 'Today\'s Location History';
     }
     todayAlertsHistoryButtonLabel = (lang: String = 'es') => {
-        return lang === 'es' ? 'Historial de Alertas de Hoy' : 'Today\'s Alert History';
+        return lang === 'es' ? 'Historial de Eventos de Hoy' : 'Today\'s Event History';
     }
     cancelButtonLabel = (lang: String = 'es') => {
         return lang === 'es' ? 'Cancelar' : 'Cancel';
@@ -438,6 +447,9 @@ export default class Locale {
     noGroupsToShowMessage = (lang: String = 'es') => {
         return lang === 'es' ? 'No hay grupos para mostrar' : 'No groups to show';
     }
+    noGeofencesToShowMessage = (lang: String = 'es') => {
+        return lang === 'es' ? 'No hay geocercas para mostrar' : 'No geofences to show';
+    }
     statusField = (lang: String = 'es') => {
         return lang === 'es' ? 'Estado' : 'Status';
     }
@@ -461,6 +473,105 @@ export default class Locale {
     }
     deviceDeletePromptQuestion = (lang: String = 'es') => {
         return lang === 'es' ? 'Está seguro de eliminar el dispositivo' : 'Are you sure to delete the device';
-    }    
+    }
+    groupDeviceDeletePromptTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Quitar Dispositivos' : 'Remove Devices';
+    }
+    groupDeviceDeletePromptQuestion = (lang: String = 'es') => {
+        return lang === 'es' ? 'Está seguro de quitar los dispositivos seleccionados del grupo' : 'Are you sure to remove the selected devices from the group';
+    }
+    geofenceDeviceDeletePromptTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Quitar Dispositivos' : 'Remove Devices';
+    }
+    geofenceDeviceDeletePromptQuestion = (lang: String = 'es') => {
+        return lang === 'es' ? 'Está seguro de quitar los dispositivos seleccionados de la geocerca' : 'Are you sure to remove the selected devices from the geofence';
+    }
+    groupAddDevicesTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Agregar a' : 'Add to';
+    }
+    groupAddDevicesPromptTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Agregar Dispositivos' : 'Add Devices';
+    }
+    groupAddDevicesPromptQuestion = (lang: String = 'es') => {
+        return lang === 'es' ? 'Está seguro de agregar los dispositivos seleccionados al grupo' : 'Are you sure to add the selected devices to the group';
+    }
+    geofenceAddDevicesPromptTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Agregar Dispositivos' : 'Add Devices';
+    }
+    geofenceAddDevicesPromptQuestion = (lang: String = 'es') => {
+        return lang === 'es' ? 'Está seguro de agregar los dispositivos seleccionados a la geocerca' : 'Are you sure to add the selected devices to the geofence';
+    }
+    allPluralText = (lang: String = 'es') => {
+        return lang === 'es' ? 'Todos' : 'All';
+    }
+    allSingularText = (lang: String = 'es') => {
+        return lang === 'es' ? 'Todo' : 'All';
+    }
+    geofenceNameLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Nombre' : 'Name';
+    }
+    geofenceDescriptionLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Descripción' : 'Description';
+    }
+    geofenceTypeLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Tipo' : 'Type';
+    }
+    geofenceColorLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Color' : 'Color';
+    }
+    geofencePolygonalLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Poligonal' : 'Polygonal';
+    }
+    geofenceCircularLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Circular' : 'Circular';
+    }
+    drawGeofenceLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Dibujar Geocerca' : 'Draw Geofence';
+    }
+    pointsLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Puntos' : 'Points';
+    }
+    centerLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Centro' : 'Center';
+    }
+    radiusLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Radio' : 'Radius';
+    }
+    emptyGeofenceNameMessage = (lang: String = 'es') => {
+        return lang === 'es' ? 'Debe ingresar el nombre de la geocerca' : 'Must enter the geofence name';
+    }
+    emptyGeofenceDescriptionMessage = (lang: String = 'es') => {
+        return lang === 'es' ? 'Debe ingresar la descripción de la geocerca' : 'Must enter the geofence description';
+    }
+    notEnoughGeofencePointsMessage = (lang: String = 'es') => {
+        return lang === 'es' ? 'La geocerca debe contener al menos 3 puntos' : 'Geofence must have at least 3 points';
+    }
+    incompleteGeofenceCircularMessage = (lang: String = 'es') => {
+        return lang === 'es' ? 'La geocerca debe contener un centro y un radio' : 'Geofence must have a center and radius';
+    }
+    duplicateGeofenceNameMessage = (lang: String = 'es') => {
+        return lang === 'es' ? 'Ya existe una geocerca con el nombre ingresado' : 'There is already a geofence with the name entered';
+    }
+    geofenceSavedSuccessfullyMsg = (lang: String = 'es') => {
+        return lang === 'es' ? 'Geocerca guardada exitosamente' : 'Geofence successfully saved';
+    }
+    geofenceUpdatedSuccessfullyMsg = (lang: String = 'es') => {
+        return lang === 'es' ? 'Geocerca actualizada exitosamente' : 'Geofence successfully updated';
+    }
+    associatedDevicesLabel = (lang: String = 'es') => {
+        return lang === 'es' ? 'Dispositivos Asociados' : 'Associated Devices';
+    }
+    geofenceDeletePromptTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Eliminar Geocerca' : 'Delete Geofnce';
+    }
+    geofenceDeletePromptQuestion = (lang: String = 'es') => {
+        return lang === 'es' ? 'Está seguro de eliminar la geocerca' : 'Are you sure to delete the geofence';
+    }
+    associateToGeofenceTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Asociar a geocerca' : 'Associate to geofence';
+    }
+    associateToGroupTitle = (lang: String = 'es') => {
+        return lang === 'es' ? 'Asociar a grupo' : 'Associate to group';
+    }
     
 }

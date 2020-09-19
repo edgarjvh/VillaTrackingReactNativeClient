@@ -91,7 +91,7 @@ class Menu extends Component {
                     </TouchableHighlight>
 
                     <TouchableHighlight underlayColor='#151E4499' style={styles.profileEditButton} onPress={() => this.props.navigation.navigate('Profile')} >
-                        <CommunityIcon name="account-edit" size={20} color='white' />
+                        <CommunityIcon name="settings" size={20} color='white' />
                     </TouchableHighlight>
                 </View>
 
@@ -105,7 +105,7 @@ class Menu extends Component {
                         </View>
                     </TouchableHighlight>
 
-                    <TouchableHighlight underlayColor='rgba(0,0,0,0.2)' style={[styles.drawerItemContainer]} onPress={() => this.props.navigation.navigate('Devices')}>
+                    <TouchableHighlight underlayColor='rgba(0,0,0,0.2)' style={[styles.drawerItemContainer]} onPress={() => this.props.navigation.navigate('Devices', {groupId: 0, geofenceId: 0, origin: 'devices'})}>
                         <View style={styles.drawerItemContent}>
                             <CommunityIcon style={styles.drawerItemContentIcon} name='eight-track' size={25} color='#151E44' />
                             <Text style={styles.drawerItemContentLabel}>{loc.devicesLabelText(this.props.lang)}</Text>
@@ -129,26 +129,18 @@ class Menu extends Component {
                         </View>
                     </TouchableHighlight>
 
-                    {/* <TouchableHighlight underlayColor='rgba(0,0,0,0.2)' style={styles.drawerItemContainer} onPress={() => this.props.navigation.navigate('Alerts')}>
+                    <TouchableHighlight underlayColor='rgba(0,0,0,0.2)' style={styles.drawerItemContainer} onPress={() => this.props.navigation.navigate('Geofences')}>
                         <View style={styles.drawerItemContent}>
-                            <CommunityIcon style={styles.drawerItemContentIcon} name='car-brake-alert' size={25} color='#151E44' />
-                            <Text style={styles.drawerItemContentLabel}>{loc.alertsLabelText(this.props.lang)}</Text>
+                            <CommunityIcon style={styles.drawerItemContentIcon} name='vector-polygon' size={25} color='#151E44' />
+                            <Text style={styles.drawerItemContentLabel}>{loc.geofencesLabel(this.props.lang)}</Text>
                             <Icon name='chevron-right' size={15} color='#151E44' />
                         </View>
-                    </TouchableHighlight> */}
+                    </TouchableHighlight>
 
                     <TouchableHighlight underlayColor='rgba(0,0,0,0.2)' style={styles.drawerItemContainer} onPress={() => this.props.navigation.navigate('Tools')}>
                         <View style={styles.drawerItemContent}>
                             <CommunityIcon style={styles.drawerItemContentIcon} name='card-bulleted-settings' size={25} color='#151E44' />
                             <Text style={styles.drawerItemContentLabel}>{loc.toolsLabelText(this.props.lang)}</Text>
-                            <Icon name='chevron-right' size={15} color='#151E44' />
-                        </View>
-                    </TouchableHighlight>
-
-                    <TouchableHighlight underlayColor='rgba(0,0,0,0.2)' style={styles.drawerItemContainer} onPress={() => this.props.navigation.navigate('Settings')}>
-                        <View style={styles.drawerItemContent}>
-                            <CommunityIcon style={styles.drawerItemContentIcon} name='settings' size={25} color='#151E44' />
-                            <Text style={styles.drawerItemContentLabel}>{loc.settingsLabelText(this.props.lang)}</Text>
                             <Icon name='chevron-right' size={15} color='#151E44' />
                         </View>
                     </TouchableHighlight>
@@ -197,7 +189,7 @@ const styles = StyleSheet.create({
         paddingTop: 30,
         paddingLeft: 15,
         paddingRight: 15,
-        paddingBottom: 15,
+        paddingBottom: 30,
         alignItems: 'center',
         flexDirection: 'row',
         position: 'relative'

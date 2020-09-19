@@ -19,11 +19,13 @@ import {
     setDeviceHistoryTimeMove,
     setDeviceHistoryTimeStop,
     setDeviceHistoryAlertsTime,
-    setGroups
+    setGroups,
+    setGeofences
 } from './../actions';
 import axios from 'axios';
 import moment from 'moment';
 import 'moment/locale/es';
+import { CheckBox } from "react-native-elements";
 
 const MaterialHeaderButton = (props) => (
     <HeaderButton IconComponent={MaterialCommunityIcons} iconSize={23} color="black" {...props} />
@@ -44,38 +46,295 @@ class Devices extends Component {
             selectedDevice: null,
             modalVisible: false,
             devicesList: [],
-            refreshingList: false
+            refreshingList: false,
+            groupId: 0,
+            geofenceId: 0,
+            deleteMode: false,
+            refresh: false
         }
 
         this.props.navigation.setOptions({
 
-            headerRight: () => (
-                <MaterialHeaderButtons>
-                    <Item title="add" iconName="plus" onPress={() => this.props.navigation.navigate('DeviceMaintainer', { type: 'add', deviceId: 0 })} />
-                    <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
-                </MaterialHeaderButtons>
-            )
+            headerRight: () => {
+                return (this.state.groupId === 0 && this.state.geofenceId === 0) ?
+                    <MaterialHeaderButtons>
+                        <Item title="add" iconName="file-plus" onPress={() => this.props.navigation.navigate('DeviceMaintainer', { type: 'add', deviceId: 0 })} />
+                        <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
+                    </MaterialHeaderButtons>
+                    :
+                    this.state.deleteMode ?
+                        <MaterialHeaderButtons>
+                            <Item title="return" iconName="keyboard-return" onPress={() => this.setState({ deleteMode: false })} />
+                            {
+                                this.props.route.params.origin === 'groups' ?
+                                    <Item
+                                        title='ok'
+                                        iconName='check'
+                                        onPress={this.showDeleteFromGroupPrompt}
+                                        disabled={
+                                            this.props.devices.reduce((n, device) => n + (device.groups.includes(this.state.groupId) && device.isSelectedInGroups), 0) === 0
+                                        }
+                                        color={
+                                            this.props.devices.reduce((n, device) => n + (device.groups.includes(this.state.groupId) && device.isSelectedInGroups), 0) === 0 ?
+                                                'rgba(0,0,0,0.3)' : 'black'
+                                        } />
+                                    :
+                                    <Item
+                                        title='ok'
+                                        iconName='check'
+                                        onPress={this.showDeleteFromGeofencePrompt}
+                                        disabled={
+                                            this.props.devices.reduce((n, device) => n + ((device.geofences.filter(e => e.id === this.state.geofenceId).length > 0) && device.isSelectedInGeofences), 0) === 0
+                                        }
+                                        color={
+                                            this.props.devices.reduce((n, device) => n + ((device.geofences.filter(e => e.id === this.state.geofenceId).length > 0) && device.isSelectedInGeofences), 0) === 0 ?
+                                                'rgba(0,0,0,0.3)' : 'black'
+                                        } />
+                            }
+                            <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
+                        </MaterialHeaderButtons>
+                        :
+                        <MaterialHeaderButtons>
+                            <Item
+                                title='delete'
+                                iconName='minus'
+                                onPress={() => this.setState({ deleteMode: true })}
+                            />
+                            <Item title="add" iconName="plus" onPress={() => {
+                                this.props.route.params.origin === 'groups' ?
+                                    this.props.navigation.navigate('GroupAddDevices', { groupId: this.state.groupId }) :
+                                    this.props.navigation.navigate('GeofenceAddDevices', { geofenceId: this.state.geofenceId })
+                            }} />
+                            <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
+                        </MaterialHeaderButtons>
+            }
         });
 
         moment.locale(this.props.lang);
     }
 
     componentDidUpdate() {
-        this.props.navigation.setOptions({
-            headerTitle: loc.devicesLabelText(this.props.lang) + ' (' + this.props.devices.length + ')'
-        })
+        switch (this.props.route.params.origin) {
+            case 'groups':
+                this.props.groups.map(group => {
+                    if (group.id === this.props.route.params.groupId) {
+                        this.props.navigation.setOptions({
+                            headerTitle: group.name + ' (' + group.devices.length + ')'
+                        })
+                    }
+                    return true;
+                })
+                break;
+            case 'geofences':
+                this.props.geofences.map(geofence => {
+                    if (geofence.id === this.props.route.params.geofenceId) {
+                        this.props.navigation.setOptions({
+                            headerTitle: geofence.name + ' (' + geofence.devices.length + ')'
+                        })
+                    }
+                    return true;
+                })
+                break;
+            default:
+                this.props.navigation.setOptions({
+                    headerTitle: loc.devicesLabelText(this.props.lang) + ' (' + this.props.devices.length + ')'
+                })
+                break;
+        }
+
+        if ((this.state.groupId !== this.props.route.params.groupId) ||
+            (this.state.geofenceId !== this.props.route.params.geofenceId)) {
+            this.setState({
+                groupId: this.props.route.params.groupId,
+                geofenceId: this.props.route.params.geofenceId,
+                deleteMode: false
+            })
+        }
 
         moment.locale(this.props.lang);
     }
 
     componentDidMount() {
-        this.props.navigation.setOptions({
-            headerTitle: loc.devicesLabelText(this.props.lang) + ' (' + this.props.devices.length + ')'
-        })
+        switch (this.props.route.params.origin) {
+            case 'groups':
+                this.props.groups.map(group => {
+                    if (group.id === this.props.route.params.groupId) {
+                        this.props.navigation.setOptions({
+                            headerTitle: group.name + ' (' + group.devices.length + ')'
+                        })
+                    }
+                    return true;
+                })
+                break;
+            case 'geofences':
+                this.props.geofences.map(geofence => {
+                    if (geofence.id === this.props.route.params.geofenceId) {
+                        this.props.navigation.setOptions({
+                            headerTitle: geofence.name + ' (' + geofence.devices.length + ')'
+                        })
+                    }
+                    return true;
+                })
+                break;
+            default:
+                this.props.navigation.setOptions({
+                    headerTitle: loc.devicesLabelText(this.props.lang) + ' (' + this.props.devices.length + ')'
+                })
+                break;
+        }
 
         this.setState({
-            devicesList: this.props.devices
+            groupId: this.props.route.params.groupId,
+            geofenceId: this.props.route.params.geofenceId
         })
+    }
+
+    showDeleteFromGroupPrompt = () => {
+        let groupName = '';
+
+        this.props.groups.map(group => {
+            if (group.id === this.state.groupId) {
+                groupName = group.name;
+            }
+        });
+
+        Alert.alert(
+            loc.groupDeviceDeletePromptTitle(this.props.lang),
+            loc.groupDeviceDeletePromptQuestion(this.props.lang) + ' ' + groupName + '?',
+            [
+                {
+                    text: loc.cancelButtonLabel(this.props.lang),
+                    onPress: () => console.log('Cancel Pressed!')
+                },
+                {
+                    text: loc.acceptButtonLabel(this.props.lang),
+                    onPress: this.deleteGroupDevices
+                }
+            ],
+            {
+                cancelable: false
+            }
+        )
+    }
+
+    showDeleteFromGeofencePrompt = () => {
+        let geofenceName = '';
+
+        this.props.geofences.map(geofence => {
+            if (geofence.id === this.state.geofenceId) {
+                geofenceName = geofence.name;
+            }
+        });
+
+        Alert.alert(
+            loc.geofenceDeviceDeletePromptTitle(this.props.lang),
+            loc.geofenceDeviceDeletePromptQuestion(this.props.lang) + ' ' + geofenceName + '?',
+            [
+                {
+                    text: loc.cancelButtonLabel(this.props.lang),
+                    onPress: () => console.log('Cancel Pressed!')
+                },
+                {
+                    text: loc.acceptButtonLabel(this.props.lang),
+                    onPress: this.deleteGeofenceDevices
+                }
+            ],
+            {
+                cancelable: false
+            }
+        )
+    }
+
+    deleteGroupDevices = () => {
+        this.props.setIsLoading(true);
+
+        let ids = this.props.devices.map(device => {
+            if (device.groups.includes(this.state.groupId)) {
+                if (device.isSelectedInGroups) {
+                    return device['id']
+                }
+            }
+            return 0;
+        })
+
+        axios.post(this.props.serverUrl + '/deleteGroupDevices', {
+            ids: ids,
+            groupId: this.state.groupId,
+            userId: this.props.user.id
+        },
+            {
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            })
+            .then(async res => {
+                const deviceModels = res.data.deviceModels;
+                const devices = res.data.devices;
+                const groups = res.data.groups;
+
+                await this.props.setDevices(devices);
+                await this.props.setDevicesModels(deviceModels);
+                await this.props.setGroups(groups);
+
+                await this.setState({
+                    deleteMode: false
+                })
+
+                this.props.setIsLoading(false);
+            })
+            .catch(e => {
+                console.log(e);
+                this.setState({
+                    deleteMode: false
+                });
+                this.props.setIsLoading(false);
+            });
+    }
+
+    deleteGeofenceDevices = () => {
+        this.props.setIsLoading(true);
+
+        let ids = this.props.devices.map(device => {
+            if (device.geofences.filter(e => e.id === this.state.geofenceId).length > 0) {
+                if (device.isSelectedInGeofences) {
+                    return device['id']
+                }
+            }
+            return 0;
+        })
+
+        axios.post(this.props.serverUrl + '/deleteGeofenceDevices', {
+            ids: ids,
+            geofenceId: this.state.geofenceId,
+            userId: this.props.user.id
+        },
+            {
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            })
+            .then(async res => {
+                const deviceModels = res.data.deviceModels;
+                const devices = res.data.devices;
+                const geofences = res.data.geofences;
+
+                await this.props.setDevices(devices);
+                await this.props.setDevicesModels(deviceModels);
+                await this.props.setGeofences(geofences);
+
+                await this.setState({
+                    deleteMode: false
+                })
+
+                this.props.setIsLoading(false);
+            })
+            .catch(e => {
+                console.log(e);
+                this.setState({
+                    deleteMode: false
+                });
+                this.props.setIsLoading(false);
+            });
     }
 
     goToEdition = () => {
@@ -225,6 +484,22 @@ class Devices extends Component {
         }
     }
 
+    handleCheckbox = (deviceId) => {
+        let devices = this.props.devices.map(device => {
+            if (device.id === deviceId) {
+                if (this.props.route.params.origin === 'groups'){
+                    device.isSelectedInGroups = !device.isSelectedInGroups;
+                }else{
+                    device.isSelectedInGeofences = !device.isSelectedInGeofences;
+                }                
+            }
+
+            return device;
+        })
+
+        this.props.setDevices(devices);
+    }
+
     renderItem = ({ item }) => {
 
         return <View style={styles.deviceItemContainer}>
@@ -259,9 +534,22 @@ class Devices extends Component {
                     </Text>
                 </View>
             </View>
-            <TouchableOpacity activeOpacity={0.5} onPress={() => this.setState({ modalVisible: true, selectedDevice: item })}>
-                <MaterialCommunityIcons name="dots-vertical" size={30} color="#151E44" />
-            </TouchableOpacity>
+            {
+                this.state.deleteMode ?
+                    <CheckBox
+                        checkedIcon={<MaterialCommunityIcons name='checkbox-marked-outline' size={20} />}
+                        uncheckedIcon={<MaterialCommunityIcons name='checkbox-blank-outline' size={20} />}
+                        checked={this.props.route.params.origin === 'groups' ? item.isSelectedInGroups : item.isSelectedInGeofences}
+                        onPress={() => this.handleCheckbox(item.id)}
+                        containerStyle={{
+                            padding: 0
+                        }}
+                    />
+                    :
+                    <TouchableOpacity activeOpacity={0.5} onPress={() => this.setState({ modalVisible: true, selectedDevice: item })}>
+                        <MaterialCommunityIcons name="dots-vertical" size={30} color="#151E44" />
+                    </TouchableOpacity>
+            }
         </View>
     }
 
@@ -334,7 +622,7 @@ class Devices extends Component {
                     transparent={true}
                     visible={this.props.isLoading}
                     animationType={'slide'}
-                    onRequestClose={() => this.setIsLoading(false)}
+                    onRequestClose={() => this.props.setIsLoading(false)}
                 >
                     <View style={{
                         position: 'absolute',
@@ -446,13 +734,39 @@ class Devices extends Component {
                         this.props.devices.filter(device => {
                             let text = this.state.searchText.toLowerCase();
 
-                            if (text.trim() === '') {
-                                return device
-                            } else {
-                                if (device.imei.toLowerCase().includes(text.trim()) ||
-                                    device.license_plate.toLowerCase().includes(text.trim()) ||
-                                    device.vehicle.toLowerCase().includes(text.trim())) {
+                            if (this.props.route.params.origin === 'geofences') {
+                                if (device.geofences.filter(e => e.id === this.state.geofenceId).length > 0){
+                                    if (text.trim() === '') {
+                                        return device
+                                    } else {
+                                        if (device.imei.toLowerCase().includes(text.trim()) ||
+                                            device.license_plate.toLowerCase().includes(text.trim()) ||
+                                            device.vehicle.toLowerCase().includes(text.trim())) {
+                                            return device
+                                        }
+                                    }
+                                }                                
+                            } else if (this.props.route.params.origin === 'groups') {
+                                if (device.groups.includes(this.state.groupId)) {
+                                    if (text.trim() === '') {
+                                        return device
+                                    } else {
+                                        if (device.imei.toLowerCase().includes(text.trim()) ||
+                                            device.license_plate.toLowerCase().includes(text.trim()) ||
+                                            device.vehicle.toLowerCase().includes(text.trim())) {
+                                            return device
+                                        }
+                                    }
+                                }
+                            }else{
+                                if (text.trim() === '') {
                                     return device
+                                } else {
+                                    if (device.imei.toLowerCase().includes(text.trim()) ||
+                                        device.license_plate.toLowerCase().includes(text.trim()) ||
+                                        device.vehicle.toLowerCase().includes(text.trim())) {
+                                        return device
+                                    }
                                 }
                             }
                         })
@@ -594,7 +908,9 @@ const mapStateToProps = (state) => {
         user: state.userReducer.user,
         devicesShown: state.devicesReducer.devicesShown,
         autoCenterDevice: state.mapReducer.autoCenterDevice,
-        isLoading: state.appReducer.isLoading
+        isLoading: state.appReducer.isLoading,
+        groups: state.groupReducer.groups,
+        geofences: state.geofenceReducer.geofences
     }
 }
 
@@ -613,5 +929,6 @@ export default connect(mapStateToProps, {
     setDeviceHistoryTimeMove,
     setDeviceHistoryTimeStop,
     setDeviceHistoryAlertsTime,
-    setGroups
+    setGroups,
+    setGeofences
 })(Devices)

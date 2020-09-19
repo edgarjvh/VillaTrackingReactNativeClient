@@ -1,22 +1,21 @@
-import React, { Component } from 'react';
-import { View, Text, StyleSheet, Modal, ActivityIndicator, FlatList, TextInput, TouchableOpacity, Alert } from 'react-native';
-import FontAwesomeIcon from 'react-native-vector-icons/FontAwesome';
-import { FontAwesome, MaterialCommunityIcons, FontAwesome5 } from 'react-native-vector-icons';
-import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { connect } from 'react-redux';
-import Locale from './../locale.ts';
+import React, { Component } from "react";
+import { connect } from "react-redux";
+import { View, Text, StyleSheet, ActivityIndicator, Modal, Alert, TouchableOpacity, FlatList, TextInput } from "react-native";
+import { MaterialCommunityIcons, FontAwesome } from "react-native-vector-icons";
+import Locale from './../locale';
 import { HeaderButtons, HeaderButton, Item } from 'react-navigation-header-buttons';
-import {
-    setIsLoading,
-    setGroups,
-    setDevices,
-    setDevicesModels
-} from "./../actions";
-import axios from 'axios';
+import axios from "axios";
 import { Badge } from "react-native-elements";
+import {
+    setDevices,
+    setGeofences,
+    setDevicesModels,
+    setGroups,
+    setIsLoading
+} from "./../actions";
 
 const MaterialHeaderButton = (props) => (
-    <HeaderButton IconComponent={MaterialIcon} iconSize={23} color="black" {...props} />
+    <HeaderButton IconComponent={MaterialCommunityIcons} iconSize={23} {...props} />
 );
 
 const MaterialHeaderButtons = (props) => {
@@ -25,14 +24,13 @@ const MaterialHeaderButtons = (props) => {
 
 const loc = new Locale();
 
-class Groups extends Component {
-
+class Geofences extends Component {
     constructor(props) {
-        super(props);
+        super(props)
 
         this.state = {
             searchText: '',
-            selectedGroup: null,
+            selectedGeofence: null,
             modalVisible: false,
             refreshingList: false
         }
@@ -40,7 +38,7 @@ class Groups extends Component {
         this.props.navigation.setOptions({
             headerRight: () => (
                 <MaterialHeaderButtons>
-                    <Item title="add" iconName="file-plus" onPress={() => this.props.navigation.navigate('GroupMaintainer', { type: 'add', groupId: 0 })} />
+                    <Item title="add" iconName="file-plus" onPress={() => this.props.navigation.navigate('GeofenceMaintainer', { type: 'add', geofenceId: 0 })} />
                     <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
                 </MaterialHeaderButtons>
             )
@@ -49,23 +47,17 @@ class Groups extends Component {
 
     componentDidUpdate() {
         this.props.navigation.setOptions({
-            headerTitle: loc.groupsLabelText(this.props.lang) + ' (' + this.props.groups.length + ')'
+            headerTitle: loc.geofencesLabel(this.props.lang) + ' (' + this.props.geofences.length + ')'
         })
     }
 
     componentDidMount() {
         this.props.navigation.setOptions({
-            headerTitle: loc.groupsLabelText(this.props.lang) + ' (' + this.props.groups.length + ')'
+            headerTitle: loc.geofencesLabel(this.props.lang) + ' (' + this.props.geofences.length + ')'
         })
     }
 
-    searchTextCleared = () => {
-        this.setState({
-            searchText: ''
-        })        
-    }
-
-    refreshGroupList = async () => {
+    refreshGeofenceList = async () => {
         await this.setState({ refreshingList: true });
 
         axios.post(this.props.serverUrl + '/getDevicesPayload', {
@@ -81,10 +73,12 @@ class Groups extends Component {
                 const deviceModels = res.data.deviceModels;
                 const devices = res.data.devices;
                 const groups = res.data.groups;
+                const geofences = res.data.geofences;
 
                 await this.props.setDevices(devices);
                 await this.props.setDevicesModels(deviceModels);
                 await this.props.setGroups(groups);
+                await this.props.setGeofences(geofences);
                 this.setState({ refreshingList: false });
             })
             .catch(e => {
@@ -93,81 +87,49 @@ class Groups extends Component {
             });
     }
 
-    renderItem = ({ item }) => {
-        return <View style={[styles.groupItemContainer, { backgroundColor: item.status === 0 ? '#F6CECE' : '#FFF' }]}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Text style={{marginRight: 10}}>{item.name}</Text>
-                <Badge value={item.devices.length} status='primary' />
-            </View>
-            <TouchableOpacity activeOpacity={0.5} onPress={() => this.setState({ modalVisible: true, selectedGroup: item })}>
-                <MaterialCommunityIcons name="dots-vertical" size={30} color="#151E44" />
-            </TouchableOpacity>
-        </View>
-    }
-
     goToEdition = () => {
         this.setState({
             modalVisible: false
         });
 
-        this.props.navigation.navigate('GroupMaintainer', { type: 'edit', groupId: this.state.selectedGroup.id });
+        this.props.navigation.navigate('GeofenceMaintainer', { type: 'edit', geofenceId: this.state.selectedGeofence.id });
     }
 
-    showGroupDevices = () => {
+    showGeofenceDevices = () => {
         this.setState({
             modalVisible: false
         });
 
-        this.props.navigation.navigate('Devices', { groupId: this.state.selectedGroup.id, geofenceId: 0, origin: 'groups' });
+        this.props.navigation.navigate('Devices', { groupId: 0, geofenceId: this.state.selectedGeofence.id, origin: 'geofences' });
     }
 
-    deleteGroup = () => {
-        Alert.alert(
-            loc.groupDeletePromptTitle(this.props.lang),
-            loc.groupDeletePromptQuestion(this.props.lang) + ' ' + this.state.selectedGroup.name + '?',
-            [
-                {
-                    text: loc.cancelButtonLabel(this.props.lang),
-                    onPress: () => console.log('Cancel Pressed!')
-                },
-                {
-                    text: loc.acceptButtonLabel(this.props.lang),
-                    onPress: this.clearGroup
-                }
-            ],
-            {
-                cancelable: false
-            }
-        )
-    }
-
-    clearGroup = () => {
+    deleteGeofence = () => {
         this.props.setIsLoading(true);
 
-        axios.post(this.props.serverUrl + '/deleteGroup', {
-            groupId: this.state.selectedGroup.id,
-            userId: this.props.user.id
+        axios.post(this.props.serverUrl + '/deleteGeofence', {
+            userId: this.props.user.id,
+            geofenceId: this.state.selectedGeofence.id
         },
             {
                 headers: {
                     "Content-Type": "application/json"
                 }
             })
-            .then(res => {
+            .then(async res => {
                 switch (res.data.result) {
                     case 'OK':
                         this.props.setIsLoading(false);
-                        this.props.setDevices(res.data.devices);
-                        this.props.setDevicesModels(res.data.deviceModels);
-                        this.props.setGroups(res.data.groups);
+                        await this.props.setDevices(res.data.devices);
+                        await this.props.setDevicesModels(res.data.deviceModels);
+                        await this.props.setGeofences(res.data.geofences);
 
                         this.setState({
                             searchText: '',
-                            selectedGroup: null,
+                            selectedGeofence: null,
                             modalVisible: false,
                             refreshingList: false
                         });
-                        break;                    
+                        break;
                     default:
                         this.props.setIsLoading(false);
                         Alert.alert('VillaTracking', loc.erroOccurred(this.props.lang));
@@ -182,33 +144,33 @@ class Groups extends Component {
             })
     }
 
+    renderItem = ({ item }) => {
+        return <View style={[styles.geofenceItemContainer, { backgroundColor: item.status === 0 ? '#F6CECE' : '#FFF' }]}>
+            <View style={{ flexDirection: 'column', flex: 1 }}>
+                <View style={{ flexDirection: 'row' }}>
+                    <Text style={{ marginRight: 10, fontSize: 18 }}>{item.name}</Text>
+                    <Badge value={item.devices.length} status='primary' />
+                </View>
+                <View>
+                    <Text>
+                        {item.description}
+                    </Text>
+                </View>
+            </View>
+            <TouchableOpacity activeOpacity={0.5} onPress={() => this.setState({ modalVisible: true, selectedGeofence: item })}>
+                <MaterialCommunityIcons name="dots-vertical" size={30} color="#151E44" />
+            </TouchableOpacity>
+        </View>
+    }
+
     render() {
         return (
             <View style={styles.container}>
-
-                <Modal
-                    transparent={true}
-                    visible={this.props.isLoading}
-                    animationType={'slide'}
-                    onRequestClose={() => this.props.setIsLoading(false)}
-                >
-                    <View style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        zIndex: 5
-                    }}>
-                        <ActivityIndicator size='large' color='white' />
-                    </View>
-                </Modal>
-
                 <Modal
                     transparent={true}
                     visible={this.state.modalVisible}
                     animationType={'slide'}
-                    onRequestClose={() => this.setState({ modalVisible: false, selectedGroup: null })}
+                    onRequestClose={() => this.setState({ modalVisible: false, selectedGeofence: null })}
                 >
                     <View style={styles.modalContainer}>
                         <View style={styles.modalContent} >
@@ -220,7 +182,7 @@ class Groups extends Component {
                                 </View>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.modalButtonContainer} onPress={this.showGroupDevices} >
+                            <TouchableOpacity style={styles.modalButtonContainer} onPress={this.showGeofenceDevices} >
                                 <View style={styles.modalButtonContent}>
                                     <MaterialCommunityIcons name="eight-track" size={25} />
                                     <Text style={styles.modalButtonText}>{loc.associatedDevicesLabel(this.props.lang)}</Text>
@@ -228,7 +190,25 @@ class Groups extends Component {
                                 </View>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={[styles.modalButtonContainer, { backgroundColor: 'rgba(255,0,0,0.3)' }]} onPress={this.deleteGroup}>
+                            <TouchableOpacity style={[styles.modalButtonContainer, { backgroundColor: 'rgba(255,0,0,0.3)' }]} onPress={() => {
+                                Alert.alert(
+                                    loc.geofenceDeletePromptTitle(this.props.lang),
+                                    loc.geofenceDeletePromptQuestion(this.props.lang) + ' ' + this.state.selectedGeofence.name + '?',
+                                    [
+                                        {
+                                            text: loc.cancelButtonLabel(this.props.lang),
+                                            onPress: () => console.log('Cancel Pressed!')
+                                        },
+                                        {
+                                            text: loc.acceptButtonLabel(this.props.lang),
+                                            onPress: this.deleteGeofence
+                                        }
+                                    ],
+                                    {
+                                        cancelable: false
+                                    }
+                                )
+                            }}>
                                 <View style={styles.modalButtonContent}>
                                     <MaterialCommunityIcons name="delete" size={25} />
                                     <Text style={styles.modalButtonText}>{loc.deleteButtonLabel(this.props.lang)}</Text>
@@ -257,21 +237,22 @@ class Groups extends Component {
                     />
                     {
                         this.state.searchText.trim() !== '' &&
-                        <FontAwesome style={{ marginLeft: 10 }} name="times" size={20} color="#151E4499" onPress={this.searchTextCleared} />
+                        <FontAwesome style={{ marginLeft: 10 }} name="times" size={20} color="#151E4499" onPress={() => this.setState({ searchText: '' })} />
                     }
                 </View>
 
                 <FlatList
                     extraData={true}
                     data={
-                        this.props.groups.filter(group => {
+                        this.props.geofences.filter(geofence => {
                             let text = this.state.searchText.toLowerCase();
 
                             if (text.trim() === '') {
-                                return group
+                                return geofence
                             } else {
-                                if (group.name.toLowerCase().includes(text.trim())) {
-                                    return group
+                                if (geofence.name.toLowerCase().includes(text.trim()) ||
+                                    geofence.description.toLowerCase().includes(text.trim())) {
+                                    return geofence
                                 }
                             }
                         })
@@ -279,7 +260,7 @@ class Groups extends Component {
                     renderItem={this.renderItem}
                     ListEmptyComponent={() =>
                         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                            <Text>{loc.noGroupsToShowMessage(this.props.lang)}</Text>
+                            <Text>{loc.noGeofencesToShowMessage(this.props.lang)}</Text>
                         </View>
                     }
                     ItemSeparatorComponent={() =>
@@ -287,7 +268,7 @@ class Groups extends Component {
                             height: 5
                         }}></View>
                     }
-                    onRefresh={this.refreshGroupList}
+                    onRefresh={this.refreshGeofenceList}
                     refreshing={this.state.refreshingList}
                     keyExtractor={(item => item.id.toString())}
                 ></FlatList>
@@ -304,11 +285,18 @@ const styles = StyleSheet.create({
         padding: 10,
         position: 'relative'
     },
-    stackHeader: {
+    searchContainer: {
         flexDirection: 'row',
-        justifyContent: 'center'
+        borderWidth: 1,
+        padding: 10,
+        borderRadius: 5,
+        backgroundColor: 'white',
+        borderColor: 'rgba(0,0,0,0.1)',
+        elevation: 2,
+        alignItems: 'center',
+        marginBottom: 5
     },
-    groupItemContainer: {
+    geofenceItemContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'white',
@@ -322,17 +310,6 @@ const styles = StyleSheet.create({
         paddingRight: 10,
         paddingTop: 5,
         paddingBottom: 5
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        borderWidth: 1,
-        padding: 10,
-        borderRadius: 5,
-        backgroundColor: 'white',
-        borderColor: 'rgba(0,0,0,0.1)',
-        elevation: 2,
-        alignItems: 'center',
-        marginBottom: 5
     },
     modalContainer: {
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -364,22 +341,21 @@ const styles = StyleSheet.create({
         flex: 1,
         fontWeight: 'bold'
     }
-})
+});
 
-const mapStateToProps = (state) => {
+const mapStateToProps = state => {
     return {
         lang: state.appReducer.lang,
         serverUrl: state.appReducer.serverUrl,
-        isLoading: state.appReducer.isLoading,
-        groups: state.groupReducer.groups,
-        user: state.userReducer.user
+        user: state.userReducer.user,
+        geofences: state.geofenceReducer.geofences
     }
 }
 
 export default connect(mapStateToProps, {
     setIsLoading,
-    setGroups,
     setDevices,
+    setGeofences,
+    setGroups,
     setDevicesModels
-})(Groups)
-
+})(Geofences)

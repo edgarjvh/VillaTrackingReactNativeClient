@@ -17,8 +17,13 @@ import Devices from './screens/devices';
 import DeviceMaintainer from './screens/deviceMaintainer';
 import Groups from './screens/groups';
 import GroupMaintainer from './screens/groupMaintainer';
+import GroupAddDevices from './screens/groupAddDevices';
 import History from './screens/history';
 import HistoryDetails from "./screens/historyDetails";
+import Geofences from './screens/geofences';
+import GeofenceMaintainer from './screens/geofenceMantainer';
+import GeofenceDrawing from './screens/geofenceDrawing';
+import GeofenceAddDevices from './screens/geofenceAddDevices';
 import Alerts from './screens/alerts';
 import Tools from './screens/tools';
 import Settings from './screens/settings';
@@ -115,7 +120,15 @@ class Root extends Component {
             <Stack.Screen
                 name="GroupMaintainer"
                 component={GroupMaintainer}
-                options={{                    
+                options={{
+                    headerShown: true
+                }}
+            />
+
+            <Stack.Screen
+                name="GroupAddDevices"
+                component={GroupAddDevices}
+                options={{
                     headerShown: true
                 }}
             />
@@ -139,10 +152,35 @@ class Root extends Component {
             />
 
             <Stack.Screen
-                name="Alerts"
-                component={Alerts}
+                name="Geofences"
+                component={Geofences}
                 options={{
-                    title: loc.alertsLabelText(this.props.lang),
+                    title: loc.geofencesLabel(this.props.lang),
+                    headerShown: true
+                }}
+            />
+
+            <Stack.Screen
+                name="GeofenceMaintainer"
+                component={GeofenceMaintainer}
+                options={{
+                    headerShown: true
+                }}
+            />
+
+            <Stack.Screen
+                name="GeofenceDrawing"
+                component={GeofenceDrawing}
+                options={{
+                    headerShown: true,
+                    title: loc.drawGeofenceLabel(this.props.lang)
+                }}
+            />
+
+            <Stack.Screen
+                name="GeofenceAddDevices"
+                component={GeofenceAddDevices}
+                options={{
                     headerShown: true
                 }}
             />

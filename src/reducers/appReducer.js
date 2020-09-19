@@ -2,7 +2,7 @@ import { appConstants } from "./../constants";
 
 export const appReducer = (state = {
     lang: 'es',
-    // serverUrl: 'http://192.168.42.139:3000',
+    // serverUrl: 'http://192.168.42.136:3000',
     serverUrl: 'http://192.168.1.100:3000',
     isLoading: false
 }, action) => {

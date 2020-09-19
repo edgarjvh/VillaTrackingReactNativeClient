@@ -1,43 +1,117 @@
 import React, { Component } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { connect } from "react-redux";
-import { View, Text, StyleSheet, TouchableHighlight, Modal, TouchableOpacity, Image, ActivityIndicator } from "react-native";
-import MapView, { Marker, Polyline, Callout, Circle } from 'react-native-maps';
-import { MaterialCommunityIcons, Feather, MaterialIcons } from 'react-native-vector-icons';
+import { connect } from 'react-redux';
+import { View, Text, StyleSheet, ActivityIndicator, Modal, Image, TouchableOpacity, TouchableHighlight } from 'react-native';
+import { MaterialCommunityIcons, FontAwesome, Feather } from 'react-native-vector-icons';
 import Locale from './../locale';
-import { setIsLoading } from "./../actions";
+import { HeaderButtons, HeaderButton, Item } from 'react-navigation-header-buttons';
+import axios from 'axios';
+import MapView, { Polygon, Circle, Marker } from "react-native-maps";
+import {
+    setIsLoading,
+    setGeofencePoints,
+    setGeofenceCenter,
+    setGeofenceRadius,
+    handleMapReady
+} from './../actions';
+import { getDistance } from 'geolib'
+
+const MaterialHeaderButton = (props) => (
+    <HeaderButton IconComponent={MaterialCommunityIcons} iconSize={23} {...props} />
+);
+
+const MaterialHeaderButtons = (props) => {
+    return <HeaderButtons HeaderButtonComponent={MaterialHeaderButton} {...props} />;
+};
 
 const loc = new Locale();
 
-
-class HistoryMap extends Component {
+class GeofenceDrawing extends Component {
     constructor(props) {
         super(props)
 
         this.state = {
-            mapType: 'standard',
-            showMaptypes: false,
-            showPolyline: true
+            showMaptypes: false
         }
+
+        this.props.navigation.setOptions({
+            headerRight: () => (
+                <MaterialHeaderButtons>
+                    {
+                        this.props.geofenceType === 'polygon' &&
+                        <Item
+                            title="delete"
+                            iconName="backspace"
+                            onPress={this.removeLast}
+                            disabled={this.props.geofencePoints.length === 0}
+                            color={this.props.geofencePoints.length === 0 ? 'rgba(0,0,0,0.3)' : 'black'} />
+                    }
+                    <Item title="clear" iconName="broom" onPress={this.clearMap} />
+                    <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
+                </MaterialHeaderButtons>
+            )
+        })
+    }
+
+    clearMap = () => {
+        this.props.setGeofencePoints([]);
+        this.props.setGeofenceCenter(null);
+        this.props.setGeofenceRadius(0);
     }
 
     componentDidMount() {
-        this.props.setIsLoading(true);
+        console.log(this.props.geofenceColor + '00')
+    }
+
+    onMapPress = (e) => {
+        let { coordinate } = e.nativeEvent;
+
+        if (this.props.geofenceType === 'polygon') {
+            let points = this.props.geofencePoints.map(point => {
+                return point;
+            });
+
+            points.push(coordinate);
+
+            this.props.setGeofencePoints(points);
+        } else {
+            if (this.props.geofenceCenter) {
+                this.props.setGeofenceRadius(getDistance(this.props.geofenceCenter, coordinate));
+            } else {
+                this.props.setGeofenceCenter(coordinate);
+            }
+        }
+    }
+
+    removeLast = () => {
+        let points = this.props.geofencePoints.map(point => {
+            return point;
+        });
+
+        points.pop();
+
+        this.props.setGeofencePoints(points);
     }
 
     onMapLayout = () => {
-        this.props.setIsLoading(false);
-
-        if (this.map) {
-            this.map.fitToCoordinates(this.props.coordsData);
-        } else {
-            console.log('no map')
-        }
+        this.fitCoords();
     }
 
     fitCoords = () => {
         if (this.map) {
-            this.map.fitToCoordinates(this.props.coordsData);
+            if (this.props.geofenceType === 'polygon') {
+                if (this.props.geofencePoints && this.props.geofencePoints.length > 0) {
+                    this.map.fitToCoordinates(this.props.geofencePoints);
+                }
+            } else {
+                if (this.props.geofenceRadius > 0) {
+                    console.log(this.circle)
+                    this.map.fitToCoordinates(this.get4PointsAroundCircunference(
+                        this.props.geofenceCenter.latitude,
+                        this.props.geofenceCenter.longitude,
+                        this.props.geofenceRadius / 1000
+                    ))
+                }
+            }
         }
     }
 
@@ -57,46 +131,36 @@ class HistoryMap extends Component {
         })
     }
 
+    get4PointsAroundCircunference = (latitude, longitude, radius) => {
+        const earthRadius = 6378.1;
+        const lat0 = latitude + (-radius / earthRadius) * (180 / Math.PI);
+        const lat1 = latitude + (radius / earthRadius) * (180 / Math.PI);
+        const lng0 = longitude + (-radius / earthRadius) * (180 / Math.PI) / Math.cos(latitude * Math.PI / 180);
+        const lng1 = longitude + (radius / earthRadius) * (180 / Math.PI) / Math.cos(latitude * Math.PI / 180);
+
+        return [
+            {
+                latitude: lat0,
+                longitude: longitude
+            },
+            {
+                latitude: latitude,
+                longitude: lng0
+            },
+            {
+                latitude: lat1,
+                longitude: longitude
+            },
+            {
+                latitude: latitude,
+                longitude: lng1
+            }
+        ]
+    }
 
     render() {
         return (
             <View style={styles.container}>
-
-                <Modal
-                    transparent={true}
-                    visible={this.props.isLoading}
-                    animationType={'slide'}
-                    onRequestClose={() => this.props.setIsLoading(false)}
-                >
-                    <View style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        zIndex: 5
-                    }}>
-                        <ActivityIndicator size='large' color='white' />
-                    </View>
-                </Modal>
-
-                <StatusBar style="dark" />
-                {
-                    this.props.isLoading &&
-                    <View style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        zIndex: 5
-                    }}>
-                        <ActivityIndicator size='large' color='white' />
-                    </View>
-                }
-
-                <StatusBar style="auto" />
-
                 <Modal
                     visible={this.state.showMaptypes}
                     transparent={true}
@@ -198,54 +262,18 @@ class HistoryMap extends Component {
                                     </View>
                                 </View>
                             </View>
-
-                            <View style={[styles.modalMapTypeTitle, {
-                                marginTop: 10
-                            }]}>
-                                <Text>
-                                    {loc.mapUtilitiesLabel(this.props.lang)}
-                                </Text>
-                            </View>
-
-                            <View style={[styles.modalMapTypesOptionsRow, {
-                                paddingBottom: 20
-                            }]}>
-                                <View style={[styles.modalMaptypeButton, {
-                                    backgroundColor: this.state.showPolyline ? '#81BEF7' : '#F2F2F2'
-                                }]}>
-                                    <TouchableHighlight
-                                        underlayColor="#58ACFA"
-                                        onPress={() => this.setState({ showPolyline: !this.state.showPolyline })}>
-                                        <Image
-                                            source={require('./../../assets/markertail.png')}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                resizeMode: 'cover'
-                                            }} />
-
-                                    </TouchableHighlight>
-                                    <View>
-                                        <Text style={{ textAlign: 'center', marginTop: 10 }}>
-                                            {
-                                                loc.lineLabel(this.props.lang)
-                                            }
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
                         </View>
                     </View>
                 </Modal>
-
                 <MapView
+                    style={styles.mapStyle}
+                    onPress={this.onMapPress}
                     ref={(el) => { this.map = el }}
                     provider='google'
-                    style={styles.mapStyle}
-                    mapType={this.state.mapType}
                     zoomTapEnabled={true}
                     zoomEnabled={true}
                     loadingEnabled={true}
+                    mapType={this.state.mapType}
                     initialCamera={{
                         center: {
                             latitude: 10.4159096,
@@ -256,90 +284,58 @@ class HistoryMap extends Component {
                         altitude: 0,
                         zoom: 13
                     }}
-                    onLayout={this.onMapLayout}
+                    onLayout={() => this.onMapLayout()}
                 >
                     {
-                        this.props.historyData.map((trace, index) => {
-                            return (
-                                <Marker
-                                    key={trace.id}
-                                    coordinate={{
-                                        latitude: trace.latitude,
-                                        longitude: trace.longitude
-                                    }}
-                                    title={
-                                        trace.date_time === trace.last_date_time ?
-                                            trace.date_time :
-                                            trace.date_time + ' >> ' + trace.last_date_time
-                                    }
-                                    anchor={{
-                                        x: 0.5,
-                                        y: 0.5
-                                    }}
-                                    calloutAnchor={{
-                                        x: 0.5,
-                                        y: 0.5
-                                    }}
-                                    flat={true}
-                                    rotation={trace.heading}
-                                    image={trace.speed > 0 ?
-                                        require('./../../assets/defaultmove.png') :
-                                        require('./../../assets/defaultstop.png')}
-                                >
-                                    <Callout tooltip={true}>
-                                        <View style={styles.calloutContainer}>
-                                            <View style={styles.calloutContent}>
-                                                <View style={styles.calloutTitleContainer}>
-                                                    <Text style={{ color: '#fff' }}>
-                                                        {loc.recordLabel(this.props.lang)} N°: {(index + 1).toString()}
-                                                    </Text>
-                                                </View>
+                        (this.props.geofenceType === 'polygon' && this.props.geofencePoints.length > 0) &&
+                        <Polygon
+                            coordinates={this.props.geofencePoints}
+                            fillColor={this.props.geofenceColor + '70'}
+                            strokeColor={this.props.geofenceColor}
 
-                                                <View style={styles.calloutSubtitleContainer}>
-                                                    <Text style={{ textAlign: 'center' }}>
-                                                        {loc.dateTimeLabel(this.props.lang)}
-                                                    </Text>
-                                                </View>
-
-                                                <View style={styles.calloutInfo}>
-                                                    <Text style={{ textAlign: 'center' }}>
-                                                        {
-                                                            trace.date_time === trace.last_date_time ?
-                                                                trace.date_time :
-                                                                trace.date_time + ' > ' + trace.last_date_time
-                                                        }
-                                                    </Text>
-                                                </View>
-
-                                                <View style={styles.calloutSubtitleContainer}>
-                                                    <Text style={{ textAlign: 'center' }}>
-                                                        {loc.speedLabel(this.props.lang)}
-                                                    </Text>
-                                                </View>
-
-                                                <View style={styles.calloutInfo}>
-                                                    <Text style={{ textAlign: 'center' }}>
-                                                        {trace.speed} Km/H
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <View style={styles.calloutNubContainer}>
-                                                <View style={styles.calloutNub}></View>
-                                            </View>
-                                        </View>
-                                    </Callout>
-                                </Marker>
-                            )
-                        })
+                        />
                     }
 
                     {
-                        this.state.showPolyline &&
-                        <Polyline
-                            coordinates={this.props.coordsData}
-                            strokeColor={'#000'}
-                            strokeWidth={2}
+                        (this.props.geofenceType === 'circle' &&
+                            this.props.geofenceCenter &&
+                            this.props.geofenceRadius > 0) &&
+                        <Circle
+                            ref={(el) => { this.circle = el }}
+                            center={this.props.geofenceCenter}
+                            radius={this.props.geofenceRadius}
+                            fillColor={this.props.geofenceColor + '70'}
+                            strokeColor={this.props.geofenceColor}
                         />
+                    }
+
+                    {
+                        this.props.geofenceType === 'polygon' ?
+                            this.props.geofencePoints.map((point, index) => {
+                                return (
+                                    <Marker
+                                        nativeID={'456'}
+                                        key={index}
+                                        coordinate={{
+                                            latitude: point.latitude,
+                                            longitude: point.longitude
+                                        }}
+                                        image={require('./../../assets/trans.png')}
+                                        anchor={{ x: 0.5, y: 0.5 }}
+                                    />
+                                )
+                            })
+                            :
+                            this.props.geofenceCenter &&
+                            <Marker
+                                nativeID={'456'}
+                                coordinate={{
+                                    latitude: this.props.geofenceCenter.latitude,
+                                    longitude: this.props.geofenceCenter.longitude
+                                }}
+                                image={require('./../../assets/trans.png')}
+                                anchor={{ x: 0.5, y: 0.5 }}
+                            />
                     }
                 </MapView>
 
@@ -471,71 +467,26 @@ const styles = StyleSheet.create({
         width: '100%',
         paddingTop: 10,
         paddingBottom: 10
-    },
-    calloutContainer: {
-        position: 'relative',
-        paddingBottom: 20
-    },
-    calloutNubContainer: {
-        position: 'absolute',
-        alignItems: 'center',
-        bottom: 0,
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: '100%'
-    },
-    calloutNub: {
-        backgroundColor: '#fff',
-        width: 20,
-        height: 20,
-        transform: [{ rotate: '45deg' }],
-        alignSelf: 'center',
-        marginBottom: 10,
-        borderRightWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: 'rgba(0,0,0,0.3)'
-    },
-    calloutContent: {
-        backgroundColor: '#fff',
-        paddingBottom: 10,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.3)',
-        overflow: 'hidden',
-        flexDirection: 'column'
-    },
-    calloutTitleContainer: {
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,1)',
-        paddingTop: 2,
-        paddingBottom: 2,
-        paddingLeft: 10,
-        paddingRight: 10
-    },
-    calloutSubtitleContainer: {
-        backgroundColor: 'rgba(0,0,0,0.1)',
-        paddingTop: 2,
-        paddingBottom: 2,
-        paddingLeft: 10,
-        paddingRight: 10
-    },
-    calloutInfo: {
-        paddingTop: 2,
-        paddingBottom: 2,
-        paddingLeft: 10,
-        paddingRight: 10
     }
-})
+});
 
-const mapStateToProps = (state) => {
+const mapStateToProps = state => {
     return {
         lang: state.appReducer.lang,
-        historyData: state.devicesReducer.historyData,
-        coordsData: state.devicesReducer.coordsData,
-        isLoading: state.appReducer.isLoading
+        serverUrl: state.appReducer.serverUrl,
+        user: state.userReducer.user,
+        geofenceType: state.geofenceReducer.geofenceType,
+        geofenceColor: state.geofenceReducer.geofenceColor,
+        geofencePoints: state.geofenceReducer.geofencePoints,
+        geofenceCenter: state.geofenceReducer.geofenceCenter,
+        geofenceRadius: state.geofenceReducer.geofenceRadius
     }
 }
 
 export default connect(mapStateToProps, {
-    setIsLoading
-})(HistoryMap)
+    setIsLoading,
+    setGeofencePoints,
+    setGeofenceCenter,
+    setGeofenceRadius,
+    handleMapReady
+})(GeofenceDrawing)

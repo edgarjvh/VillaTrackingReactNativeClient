@@ -69,6 +69,11 @@ class GeofenceAddDevices extends Component {
             device.isSelectedInGeofences = false;
             return device;
         }));
+
+        this.props.devices.map(device => {
+            console.log(device.geofences);
+            return false;
+        })
     }
 
     componentDidUpdate() {
@@ -247,7 +252,7 @@ class GeofenceAddDevices extends Component {
                         this.props.devices.filter(device => {
                             let text = this.state.searchText.toLowerCase();
 
-                            if (!device.groups.includes(this.props.route.params.groupId)) {
+                            if (device.geofences.filter(e => e.id === this.props.route.params.geofenceId).length === 0) {
                                 if (text.trim() === '') {
                                     return device
                                 } else {

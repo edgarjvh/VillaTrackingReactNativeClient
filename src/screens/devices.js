@@ -378,8 +378,6 @@ class Devices extends Component {
         this.setState({
             searchText: ''
         })
-
-        this.searchTextChanged('');
     }
 
     refreshDevicesList = async () => {

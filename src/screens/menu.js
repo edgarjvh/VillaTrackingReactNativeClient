@@ -127,7 +127,7 @@ class Menu extends Component {
                             <Text style={styles.drawerItemContentLabel}>{loc.historyLabelText(this.props.lang)}</Text>
                             <Icon name='chevron-right' size={15} color='#151E44' />
                         </View>
-                    </TouchableHighlight>
+                    </TouchableHighlight> 
 
                     <TouchableHighlight underlayColor='rgba(0,0,0,0.2)' style={styles.drawerItemContainer} onPress={() => this.props.navigation.navigate('Geofences')}>
                         <View style={styles.drawerItemContent}>

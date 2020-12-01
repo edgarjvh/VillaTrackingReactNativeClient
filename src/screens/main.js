@@ -20,16 +20,19 @@ import {
     setGroups,
     setGeofences
 } from './../actions';
+import moment from 'moment';
+import Geocoder from 'react-native-geocoding';
 
 const loc = new Locale();
-import * as Permissions from 'expo-permissions'
+import * as Permissions from 'expo-permissions';
+import * as Location from 'expo-location';
 import { connect } from 'react-redux';
 
 class Main extends Component {
     constructor(props) {
         super(props)
 
-        
+
         this.socket = SocketIOClient(this.props.serverUrl, { jsonp: false, agent: '-', pfx: '-', cert: '-', ca: '-', ciphers: '-', rejectUnauthorized: '-', perMessageDeflate: '-' });
 
         this.onNewGpsData = this.onNewGpsData.bind(this);
@@ -45,13 +48,13 @@ class Main extends Component {
                 }
             }
         )
-            .then(async res => {                
-                if (res.data.result === 'OK'){
+            .then(async res => {
+                if (res.data.result === 'OK') {
                     const deviceModels = await res.data.deviceModels;
                     const devices = await res.data.devices;
                     const geofences = await res.data.geofences;
                     const groups = await res.data.groups;
-    
+
                     await this.props.setDevices(devices);
                     await this.props.setDevicesModels(deviceModels);
                     await this.props.setGeofences(geofences);
@@ -61,6 +64,10 @@ class Main extends Component {
             .catch(e => {
                 console.log(e);
             });
+
+        this.state = {
+            currentAddress: ''
+        }
     }
 
     onNewGpsData = async (data) => {
@@ -94,6 +101,8 @@ class Main extends Component {
 
     componentDidMount() {
         this._getLocationPermissionAsync();
+
+        Geocoder.init("AIzaSyDJrTt5rprVW9n16JNgc8NOjKzSt6WEqqg", { language: this.props.lang });
     }
 
     componentDidUpdate() {
@@ -133,10 +142,13 @@ class Main extends Component {
     }
 
     _getLocationPermissionAsync = async () => {
-        const { status } = await Permissions.askAsync(Permissions.LOCATION)
+        const { status } = await Location.requestPermissionsAsync();
+
         if (status !== 'granted') {
             // display an error
         }
+
+        Location.setApiKey('AIzaSyDJrTt5rprVW9n16JNgc8NOjKzSt6WEqqg');
     }
 
     handleUserLocationChange = (e) => {
@@ -200,11 +212,28 @@ class Main extends Component {
 
     onMarkerPress = (a, imei) => {
         this.props.devices.map(async device => {
-            if(device.imei === imei){
+            if (device.imei === imei) {
                 await this.props.setAutoCenterDevice(device);
+
+                this.getAddressFromLatLng(device.traces[0].latitude, device.traces[0].longitude)
             }
             return true;
         });
+    }
+
+    getAddressFromLatLng = (lat, lng) => {
+        Geocoder.from(lat, lng)
+            .then(json => {
+                let addressComponent = json.results[0].formatted_address;
+                this.setState({
+                    currentAddress: addressComponent
+                })
+            })
+            .catch(error => console.warn(error));
+
+            let newAddress = Location.reverseGeocodeAsync();
+            
+            console.log(newAddress);
     }
 
     render() {
@@ -514,9 +543,104 @@ class Main extends Component {
                                                                                                     device.traces[0].speed > 0 ?
                                                                                                         require('./../../assets/defaultmove.png') : require('./../../assets/defaultstop.png')
                                         }
-                                        onPress={(e) => this.onMarkerPress(e,device.imei)}
+                                        onPress={(e) => this.onMarkerPress(e, device.imei)}
 
-                                    />
+                                    >
+                                        <Callout tooltip={true}
+                                            style={{
+                                                backgroundColor: 'transparent',
+                                                borderRadius: 10,
+                                                overflow: 'hidden'
+                                            }}>
+                                            <View style={styles.calloutContainer}>
+
+                                                <View style={styles.calloutTitle}>
+                                                    <Text style={{ color: 'lightgray', marginRight: 5 }}>Imei/ID:</Text>
+                                                    <Text style={{ color: 'white' }}>{device.imei}</Text>
+                                                </View>
+
+                                                <View style={styles.calloutVehicle}>
+                                                    <Text style={{ color: 'black' }}>{device.vehicle}</Text>
+                                                    <Text style={{ color: '#0059b3' }}>{device.license_plate}</Text>
+                                                </View>
+
+                                                <View style={styles.calloutData}>
+                                                    <View style={{
+                                                        flexDirection: 'column',
+                                                        backgroundColor: 'rgba(0,0,0,0.1)',
+                                                        borderRadius: 10,
+                                                        overflow: 'hidden',
+                                                        padding: 10
+                                                    }}>
+                                                        <View style={styles.calloutDataRow}>
+                                                            <View style={styles.calloutDataCell}>
+                                                                <Text style={styles.headingText}>{loc.latitudeText(this.props.lang)}</Text>
+                                                                <Text style={{ color: 'black', fontWeight: 'bold' }}>{device.traces[0].latitude.toFixed(5)}</Text>
+                                                            </View>
+
+                                                            <View style={styles.calloutDataCell}>
+                                                                <Text style={styles.headingText}>{loc.longitudeText(this.props.lang)}</Text>
+                                                                <Text style={{ color: 'black', fontWeight: 'bold' }}>{device.traces[0].longitude.toFixed(5)}</Text>
+                                                            </View>
+
+                                                            <View style={styles.calloutDataCell}>
+                                                                <Text style={styles.headingText}>{loc.speedLabel(this.props.lang)}</Text>
+                                                                <Text style={{ color: 'black', fontWeight: 'bold' }}>{device.traces[0].speed + ' Km/h'}</Text>
+                                                            </View>
+                                                        </View>
+
+                                                        <View style={styles.calloutDataRow}>
+                                                            <View style={styles.calloutDataCell}>
+                                                                <Text style={styles.headingText}>{loc.dateText(this.props.lang)}</Text>
+                                                                <Text style={{ color: 'black', fontWeight: 'bold' }}>{moment(device.traces[0].date_time, 'YYYY-MM-DD HH:mm:ss').format('DD-MM-YYYY')}</Text>
+                                                            </View>
+
+                                                            <View style={styles.calloutDataCell}>
+                                                                <Text style={styles.headingText}>{loc.timeText(this.props.lang)}</Text>
+                                                                <Text style={{ color: 'black', fontWeight: 'bold' }}>{moment(device.traces[0].date_time, 'YYYY-MM-DD HH:mm:ss').format('hh:mm:ss a')}</Text>
+                                                            </View>
+
+                                                            <View style={styles.calloutDataCell}>
+                                                                <Text style={styles.headingText}>{loc.ignitionText(this.props.lang)}</Text>
+                                                                <Text style={{ color: 'black', fontWeight: 'bold' }}>{device.traces[0].ignition === 0 ? 'Off' : 'On'}</Text>
+                                                            </View>
+                                                        </View>
+
+                                                        <View style={styles.calloutDataRow}>
+                                                            <View style={{
+                                                                flexDirection: 'column',
+                                                                justifyContent: 'center',
+                                                                alignItems: 'center',
+                                                                width: '100%',
+                                                                flexWrap: 'wrap'
+                                                            }}>
+                                                                <Text style={styles.headingText}>{loc.addressText(this.props.lang)}</Text>
+                                                                <View style={{
+                                                                    flexDirection: 'row',
+                                                                    flexShrink: 1                                                
+                                                                }}>
+                                                                    <Text style={{
+                                                                        color: 'black',
+                                                                        fontWeight: 'bold',
+                                                                        width: '100%',
+                                                                        flexShrink: 1
+                                                                    }}>
+                                                                        {this.state.currentAddress}
+                                                                    </Text>
+                                                                </View>
+
+                                                            </View>
+                                                        </View>
+
+                                                    </View>
+
+                                                </View>
+
+                                                <View></View>
+
+                                            </View>
+                                        </Callout>
+                                    </Marker>
                                 )
                             }
                         })
@@ -701,6 +825,46 @@ const styles = StyleSheet.create({
         width: '100%',
         paddingTop: 10,
         paddingBottom: 10
+    },
+    calloutContainer: {
+        flexDirection: 'column'
+    },
+    calloutTitle: {
+        backgroundColor: 'black',
+        color: 'white',
+        flexDirection: 'row',
+        padding: 5,
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
+        justifyContent: 'center'
+    },
+    calloutVehicle: {
+        backgroundColor: 'white',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        padding: 5
+    },
+    calloutData: {
+        backgroundColor: 'white',
+        padding: 5,
+        flexDirection: 'column',
+        flexWrap: 'wrap'
+    },
+    headingText: {
+        color: 'gray',
+        textTransform: 'uppercase',
+        fontSize: 10,
+        fontWeight: 'bold'
+    },
+    calloutDataRow: {
+        flexDirection: 'row',
+        marginBottom: 5
+    },
+    calloutDataCell: {
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 70
     }
 })
 

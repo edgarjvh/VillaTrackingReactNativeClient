@@ -1,18 +1,33 @@
-import React, { Component } from 'react';
+import React, { useEffect, useState } from 'react';
 import { connect } from "react-redux";
 import { View, Text, StyleSheet, FlatList } from "react-native";
 import { FontAwesome, MaterialCommunityIcons, FontAwesome5 } from 'react-native-vector-icons';
 import Locale from './../locale';
+import moment from 'moment';
 
 const loc = new Locale();
 
-class HistoryLogs extends Component {
-    constructor(props) {
-        super(props)
-    }
+const HistoryLogs = (props) => {
+    const [type, setType] = useState('locations');
+    const [higherSpeed, setHigherSpeed] = useState(0);
+    const [distance, setDistance] = useState(0);
+    const [timeMove, setTimeMove] = useState(0);
+    const [timeStop, setTimeStop] = useState(0);
+    const [fuelConsumption, setFuelConsumption] = useState(0);
+    const [traces, setTraces] = useState([]);
 
-    renderItem = ({ item, index }) => {
-        return this.props.historyType === 'locations' ?
+    useEffect(() => {
+        setType(props.route.params.type || 'locations');
+        setHigherSpeed(props.route.params.higherSpeed || 0);
+        setDistance(props.route.params.distance || 0);
+        setTimeMove(props.route.params.timeMove || 0);
+        setTimeStop(props.route.params.timeStop || 0);
+        setFuelConsumption(props.route.params.fuelConsumption || 0);
+        setTraces(props.route.params.traces || []);
+    }, []);
+
+    const renderItem = ({ item, index }) => {
+        return type === 'locations' ?
             <View style={styles.historyItemContainer}>
                 <View style={[styles.historyItemCounter]}>
                     <Text style={{ textAlign: 'center' }}>
@@ -21,7 +36,7 @@ class HistoryLogs extends Component {
                 </View>
 
                 <View style={[styles.historyItemInfo, {
-                    backgroundColor: item.speed > 0 ? item.speed === this.props.historyHigherSpeed ? 'lightblue' : 'lightgreen' : 'lightcoral'
+                    backgroundColor: item.speed > 0 ? item.speed === higherSpeed ? 'lightblue' : 'lightgreen' : 'lightcoral'
                 }]}>
                     <View style={styles.historyItemDateTime}>
                         <Text>
@@ -92,18 +107,19 @@ class HistoryLogs extends Component {
                         alignSelf: 'center'
                     }}>
                         {
-                            this.props.historyType === 'locations' ?
+                            type === 'locations' ?
                                 <Text>
                                     {item.speed} Km/H
                                 </Text>
                                 :
                                 <Text>
-                                    {item.alert === 'ac alarm' ? loc.acAlarmLabel(this.props.lang) :
-                                        item.alert === 'low battery' ? loc.lowBatteryLabel(this.props.lang) :
-                                            item.alert === 'no gps' ? loc.noGpsLabel(this.props.lang) :
-                                                item.alert === 'sensor alarm' ? loc.sensorAlarmLabel(this.props.lang) :
-                                                    item.alert === 'acc on' ? loc.accOnLabel(this.props.lang) :
-                                                        item.alert === 'acc off' ? loc.accOffLabel(this.props.lang) : ''}
+                                    {item.alert === 'ac alarm' ? loc.acAlarmLabel(props.lang) :
+                                        item.alert === 'low battery' ? loc.lowBatteryLabel(props.lang) :
+                                            item.alert === 'no gps' ? loc.noGpsLabel(props.lang) :
+                                                item.alert === 'sensor alarm' ? loc.sensorAlarmLabel(props.lang) :
+                                                    item.alert === 'acc on' ? loc.accOnLabel(props.lang) :
+                                                        item.alert === 'acc off' ? loc.accOffLabel(props.lang) :
+                                                            item.alert === 'speed' ? loc.overSpeedLabel(props.lang) : ''}
                                 </Text>
                         }
                     </View>
@@ -111,85 +127,94 @@ class HistoryLogs extends Component {
             </View>
     }
 
-    render() {
-        return (
-            <View style={styles.mainContainer}>
-                {
-                    this.props.historyType === 'locations' &&
-                    <View style={styles.historyInfoContainer}>
-                        <View style={styles.historyInfoRow}>
-                            <Text style={{ fontWeight: 'bold' }}>
-                                {loc.distanceLabel(this.props.lang)}
-                            </Text>
-                            <Text>
-                                {
-                                    this.props.historyDistance > 1000 ?
-                                        (this.props.historyDistance / 1000).toFixed(2) + ' Km' :
-                                        this.props.historyDistance + ' m'
-                                }
-                            </Text>
-                        </View>
-                        <View style={styles.historyInfoRow}>
-                            <Text>
-                                {loc.maxSpeedLabel(this.props.lang)}
-                            </Text>
-                            <Text>
-                                {
-                                    this.props.historyHigherSpeed + ' Km/H'
-                                }
-                            </Text>
-                        </View>
-                        <View style={styles.historyInfoRow}>
-                            <Text>
-                                {loc.movingTimeLabel(this.props.lang)} (h:m:s)
+    const formatTime = (sec) => {
+        let hours = sec / 3600;
+        let fullHours = Math.trunc(hours);
+        let minutes = (hours - Math.floor(hours)) * 60;
+        let fullMinutes = Math.trunc(minutes);
+        let seconds = (minutes - Math.floor(minutes)) * 60;
+        let formatted = `${fullHours}:${fullMinutes}:${seconds.toFixed(0)}`;
+
+        return formatted;
+    }
+
+    return (
+        <View style={styles.mainContainer}>
+            {
+                type === 'locations' &&
+                <View style={styles.historyInfoContainer}>
+                    <View style={styles.historyInfoRow}>
+                        <Text style={{ fontWeight: 'bold' }}>
+                            {loc.distanceLabel(props.lang)}
                         </Text>
-                            <Text>
-                                {
-                                    this.props.historyTimeMove.formatted
-                                }
-                            </Text>
-                        </View>
-                        <View style={styles.historyInfoRow}>
-                            <Text>
-                                {loc.stoppedTimeLabel(this.props.lang)} (h:m:s)
+                        <Text>
+                            {
+                                distance > 1000 ?
+                                    (distance / 1000).toFixed(2) + ' Km' :
+                                    distance + ' m'
+                            }
                         </Text>
-                            <Text>
-                                {
-                                    this.props.historyTimeStop.formatted
-                                }
-                            </Text>
-                        </View>
-                        <View style={styles.historyInfoRow}>
-                            <Text>
-                                {loc.fuelConsumptionLabel(this.props.lang)}
-                            </Text>
-                            <Text>
-                                {
-                                    this.props.historyFuelConsumption.toFixed(2) + ' ' + loc.litersLabel(this.props.lang)
-                                }
-                            </Text>
-                        </View>
+                    </View>
+                    <View style={styles.historyInfoRow}>
+                        <Text>
+                            {loc.maxSpeedLabel(props.lang)}
+                        </Text>
+                        <Text>
+                            {
+                                higherSpeed + ' Km/H'
+                            }
+                        </Text>
+                    </View>
+                    <View style={styles.historyInfoRow}>
+                        <Text>
+                            {loc.movingTimeLabel(props.lang)} (h:m:s)
+                        </Text>
+                        <Text>
+                            {
+                                formatTime(timeMove)
+                            }
+                        </Text>
+                    </View>
+                    <View style={styles.historyInfoRow}>
+                        <Text>
+                            {loc.stoppedTimeLabel(props.lang)} (h:m:s)
+                        </Text>
+                        <Text>
+                            {
+                                formatTime(timeStop)
+                            }
+                        </Text>
+                    </View>
+                    <View style={styles.historyInfoRow}>
+                        <Text>
+                            {loc.fuelConsumptionLabel(props.lang)}
+                        </Text>
+                        <Text>
+                            {
+                                fuelConsumption.toFixed(2) + ' ' + loc.litersLabel(props.lang)
+                            }
+                        </Text>
+                    </View>
+                </View>
+            }
+
+            <FlatList
+                data={traces}
+                renderItem={renderItem}
+                ListEmptyComponent={() =>
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text>{loc.noDeviceHistoryMessage(props.lang)}</Text>
                     </View>
                 }
-
-                <FlatList
-                    data={this.props.historyData}
-                    renderItem={this.renderItem}
-                    ListEmptyComponent={() =>
-                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                            <Text>{loc.noDeviceHistoryMessage(this.props.lang)}</Text>
-                        </View>
-                    }
-                    ItemSeparatorComponent={() =>
-                        <View style={{
-                            height: 5
-                        }}></View>
-                    }
-                    keyExtractor={(item => item.id.toString())}
-                ></FlatList>
-            </View>
-        )
-    }
+                ItemSeparatorComponent={() =>
+                    <View style={{
+                        height: 5
+                    }}></View>
+                }
+                keyExtractor={(item => item.id.toString())}
+            ></FlatList>
+        </View>
+    )
 }
 
 const styles = StyleSheet.create({
@@ -252,14 +277,7 @@ const styles = StyleSheet.create({
 
 const mapStateToProps = (state) => {
     return {
-        lang: state.appReducer.lang,
-        historyData: state.devicesReducer.historyData,
-        historyType: state.devicesReducer.historyType,
-        historyHigherSpeed: state.devicesReducer.historyHigherSpeed,
-        historyDistance: state.devicesReducer.historyDistance,
-        historyTimeMove: state.devicesReducer.historyTimeMove,
-        historyTimeStop: state.devicesReducer.historyTimeStop,
-        historyFuelConsumption: state.devicesReducer.historyFuelConsumption
+        lang: state.appReducer.lang
     }
 }
 

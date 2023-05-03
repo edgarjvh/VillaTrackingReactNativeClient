@@ -11,7 +11,7 @@ import CommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
 import { connect } from 'react-redux';
 import { setLanguageEs,setLanguageEn, setUser } from "./../actions";
-import AsyncStorage from "@react-native-community/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const loc = new Locale();
 const Stack = new createStackNavigator();
@@ -91,7 +91,7 @@ class Menu extends Component {
                     </TouchableHighlight>
 
                     <TouchableHighlight underlayColor='#151E4499' style={styles.profileEditButton} onPress={() => this.props.navigation.navigate('Profile')} >
-                        <CommunityIcon name="settings" size={20} color='white' />
+                        <CommunityIcon name="cog" size={20} color='white' />
                     </TouchableHighlight>
                 </View>
 

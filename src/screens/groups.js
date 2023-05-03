@@ -1,17 +1,10 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, ActivityIndicator, FlatList, TextInput, TouchableOpacity, Alert } from 'react-native';
-import FontAwesomeIcon from 'react-native-vector-icons/FontAwesome';
 import { FontAwesome, MaterialCommunityIcons, FontAwesome5 } from 'react-native-vector-icons';
 import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { connect } from 'react-redux';
 import Locale from './../locale.ts';
 import { HeaderButtons, HeaderButton, Item } from 'react-navigation-header-buttons';
-import {
-    setIsLoading,
-    setGroups,
-    setDevices,
-    setDevicesModels
-} from "./../actions";
 import axios from 'axios';
 import { Badge } from "react-native-elements";
 
@@ -25,114 +18,118 @@ const MaterialHeaderButtons = (props) => {
 
 const loc = new Locale();
 
-class Groups extends Component {
+const Groups = (props) => {
+    const [searchText, setSearchText] = useState('');
+    const [groups, setGroups] = useState([]);
+    const [selectedGroup, setSelectedGroup] = useState({});
+    const [modalVisible, setModalVisible] = useState(false);
+    const [refreshingList, setRefreshingList] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
 
-    constructor(props) {
-        super(props);
-
-        this.state = {
-            searchText: '',
-            selectedGroup: null,
-            modalVisible: false,
-            refreshingList: false
-        }
-
-        this.props.navigation.setOptions({
+    useEffect(() => {
+        props.navigation.setOptions({
             headerRight: () => (
                 <MaterialHeaderButtons>
-                    <Item title="add" iconName="file-plus" onPress={() => this.props.navigation.navigate('GroupMaintainer', { type: 'add', groupId: 0 })} />
-                    <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
+                    <Item title="add" iconName="file-plus" onPress={() => props.navigation.navigate('GroupMaintainer', { type: 'add', group: {}, onGoBack: onGoBack })} />
+                    <Item title="menu" iconName="menu" onPress={() => props.navigation.toggleDrawer()} />
                 </MaterialHeaderButtons>
             )
         })
-    }
 
-    componentDidUpdate() {
-        this.props.navigation.setOptions({
-            headerTitle: loc.groupsLabelText(this.props.lang) + ' (' + this.props.groups.length + ')'
+        props.navigation.setOptions({
+            headerTitle: loc.groupsLabelText(props.lang) + ' (' + groups.length + ')'
         })
-    }
+    })
 
-    componentDidMount() {
-        this.props.navigation.setOptions({
-            headerTitle: loc.groupsLabelText(this.props.lang) + ' (' + this.props.groups.length + ')'
-        })
-    }
+    useEffect(() => {
+        setRefreshingList(true);
 
-    searchTextCleared = () => {
-        this.setState({
-            searchText: ''
-        })        
-    }
-
-    refreshGroupList = async () => {
-        await this.setState({ refreshingList: true });
-
-        axios.post(this.props.serverUrl + '/getDevicesPayload', {
-            id: this.props.user.id
+        axios.post(props.serverUrl + '/getGroupsByUser', {
+            user_id: props.user.id
         },
             {
                 headers: {
                     "Content-Type": "application/json"
                 }
             }
-        )
-            .then(async res => {
-                const deviceModels = res.data.deviceModels;
-                const devices = res.data.devices;
-                const groups = res.data.groups;
+        ).then(res => {
+            if (res.data.result === 'OK') {
+                setGroups(res.data.groups)
+            }
+            setRefreshingList(false);
+        }).catch(e => {
+            console.log(e);
+            setRefreshingList(false);
+        });
+    }, []);
 
-                await this.props.setDevices(devices);
-                await this.props.setDevicesModels(deviceModels);
-                await this.props.setGroups(groups);
-                this.setState({ refreshingList: false });
-            })
-            .catch(e => {
-                console.log(e);
-                this.setState({ refreshingList: false });
-            });
+    const onGoBack = (_groups) => {
+        setGroups(_groups);
     }
 
-    renderItem = ({ item }) => {
+    const refreshGroupList = () => {
+        setRefreshingList(true)
+
+        axios.post(props.serverUrl + '/getGroupsByUser', {
+            user_id: props.user.id
+        },
+            {
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            }
+        ).then(res => {
+            if (res.data.result === 'OK') {
+                setGroups(res.data.groups)
+            }
+            setRefreshingList(false)
+        }).catch(e => {
+            console.log(e);
+            setRefreshingList(false)
+        });
+    }
+
+    const renderItem = ({ item }) => {
         return <View style={[styles.groupItemContainer, { backgroundColor: item.status === 0 ? '#F6CECE' : '#FFF' }]}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Text style={{marginRight: 10}}>{item.name}</Text>
-                <Badge value={item.devices.length} status='primary' />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ marginRight: 10 }}>{item.name}</Text>
+                <Badge value={item.devices_count} status='primary' />
             </View>
-            <TouchableOpacity activeOpacity={0.5} onPress={() => this.setState({ modalVisible: true, selectedGroup: item })}>
+            <TouchableOpacity activeOpacity={0.5} onPress={() => {
+                setModalVisible(true);
+                setSelectedGroup(item);
+            }}>
                 <MaterialCommunityIcons name="dots-vertical" size={30} color="#151E44" />
             </TouchableOpacity>
         </View>
     }
 
-    goToEdition = () => {
-        this.setState({
-            modalVisible: false
-        });
-
-        this.props.navigation.navigate('GroupMaintainer', { type: 'edit', groupId: this.state.selectedGroup.id });
+    const goToEdition = () => {
+        setModalVisible(false);
+        props.navigation.navigate('GroupMaintainer', { type: 'edit', group: selectedGroup, onGoBack: onGoBack});
     }
 
-    showGroupDevices = () => {
-        this.setState({
-            modalVisible: false
-        });
-
-        this.props.navigation.navigate('Devices', { groupId: this.state.selectedGroup.id, geofenceId: 0, origin: 'groups' });
+    const showGroupDevices = () => {
+        setModalVisible(false);
+        props.navigation.navigate('GroupDevices', { group: selectedGroup, updateGroups: updateGroups });
     }
 
-    deleteGroup = () => {
+    const updateGroups = (_groups) => {
+        setGroups(_groups);
+    }
+
+    const deleteGroup = () => {
         Alert.alert(
-            loc.groupDeletePromptTitle(this.props.lang),
-            loc.groupDeletePromptQuestion(this.props.lang) + ' ' + this.state.selectedGroup.name + '?',
+            loc.groupDeletePromptTitle(props.lang),
+            loc.groupDeletePromptQuestion(props.lang) + ' ' + selectedGroup.name + '?',
             [
                 {
-                    text: loc.cancelButtonLabel(this.props.lang),
+                    text: loc.cancelButtonLabel(props.lang),
                     onPress: () => console.log('Cancel Pressed!')
                 },
                 {
-                    text: loc.acceptButtonLabel(this.props.lang),
-                    onPress: this.clearGroup
+                    text: loc.acceptButtonLabel(props.lang),
+                    onPress: clearGroup
                 }
             ],
             {
@@ -141,159 +138,143 @@ class Groups extends Component {
         )
     }
 
-    clearGroup = () => {
-        this.props.setIsLoading(true);
+    const clearGroup = () => {
+        setIsLoading(true);
 
-        axios.post(this.props.serverUrl + '/deleteGroup', {
-            groupId: this.state.selectedGroup.id,
-            userId: this.props.user.id
-        },
+        axios.post(props.serverUrl + '/deleteGroup',
+            {
+                id: selectedGroup.id,
+                user_id: props.user.id
+            },
             {
                 headers: {
                     "Content-Type": "application/json"
                 }
-            })
-            .then(res => {
-                switch (res.data.result) {
-                    case 'OK':
-                        this.props.setIsLoading(false);
-                        this.props.setDevices(res.data.devices);
-                        this.props.setDevicesModels(res.data.deviceModels);
-                        this.props.setGroups(res.data.groups);
-
-                        this.setState({
-                            searchText: '',
-                            selectedGroup: null,
-                            modalVisible: false,
-                            refreshingList: false
-                        });
-                        break;                    
-                    default:
-                        this.props.setIsLoading(false);
-                        Alert.alert('VillaTracking', loc.erroOccurred(this.props.lang));
-                        console.log(res.data)
-                        break;
-                }
-            })
-            .catch(e => {
-                this.props.setIsLoading(false);
-                Alert.alert('VillaTracking', loc.erroOccurred(this.props.lang));
+            }).then(res => {                
+                if (res.data.result === 'OK'){
+                    setGroups(res.data.groups);                    
+                    setModalVisible(false);
+                }      
+                setIsLoading(false);                          
+            }).catch(e => {
+                setIsLoading(false); 
+                Alert.alert('VillaTracking', loc.erroOccurred(props.lang));
                 console.log(e)
             })
     }
 
-    render() {
-        return (
-            <View style={styles.container}>
-
-                <Modal
-                    transparent={true}
-                    visible={this.props.isLoading}
-                    animationType={'slide'}
-                    onRequestClose={() => this.props.setIsLoading(false)}
-                >
-                    <View style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        zIndex: 5
-                    }}>
-                        <ActivityIndicator size='large' color='white' />
-                    </View>
-                </Modal>
-
-                <Modal
-                    transparent={true}
-                    visible={this.state.modalVisible}
-                    animationType={'slide'}
-                    onRequestClose={() => this.setState({ modalVisible: false, selectedGroup: null })}
-                >
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalContent} >
-                            <TouchableOpacity style={styles.modalButtonContainer} onPress={this.goToEdition} >
-                                <View style={styles.modalButtonContent}>
-                                    <MaterialCommunityIcons name="file-document-edit" size={25} />
-                                    <Text style={styles.modalButtonText}>{loc.editButtonLabel(this.props.lang)}</Text>
-                                    <MaterialCommunityIcons name="chevron-right" size={30} />
-                                </View>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.modalButtonContainer} onPress={this.showGroupDevices} >
-                                <View style={styles.modalButtonContent}>
-                                    <MaterialCommunityIcons name="eight-track" size={25} />
-                                    <Text style={styles.modalButtonText}>{loc.associatedDevicesLabel(this.props.lang)}</Text>
-                                    <MaterialCommunityIcons name="chevron-right" size={30} />
-                                </View>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={[styles.modalButtonContainer, { backgroundColor: 'rgba(255,0,0,0.3)' }]} onPress={this.deleteGroup}>
-                                <View style={styles.modalButtonContent}>
-                                    <MaterialCommunityIcons name="delete" size={25} />
-                                    <Text style={styles.modalButtonText}>{loc.deleteButtonLabel(this.props.lang)}</Text>
-                                    <MaterialCommunityIcons name="chevron-right" size={30} />
-                                </View>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={[styles.modalButtonContainer, { backgroundColor: 'transparent' }]}
-                                onPress={() => this.setState({ modalVisible: false })}>
-                                <View style={styles.modalButtonContent}>
-                                    <Text style={[styles.modalButtonText, { textAlign: 'center', marginLeft: 0 }]}>{loc.cancelButtonLabel(this.props.lang)}</Text>
-                                </View>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
-
-                <View style={styles.searchContainer}>
-                    <FontAwesome name="search" size={20} color="#151E44" />
-                    <TextInput
-                        style={{ flex: 1, fontSize: 16, marginLeft: 10, color: '#151E44' }}
-                        keyboardType="web-search"
-                        placeholder={loc.searchField(this.props.lang)}
-                        onChangeText={(text) => this.setState({ searchText: text })}
-                        value={this.state.searchText}
-                    />
-                    {
-                        this.state.searchText.trim() !== '' &&
-                        <FontAwesome style={{ marginLeft: 10 }} name="times" size={20} color="#151E4499" onPress={this.searchTextCleared} />
-                    }
+    return (
+        <View style={styles.container}>
+            <Modal
+                transparent={true}
+                visible={isLoading}
+                animationType={'slide'}
+                onRequestClose={() => {setIsLoading(false)}}
+            >
+                <View style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    zIndex: 5
+                }}>
+                    <ActivityIndicator size='large' color='white' />
                 </View>
+            </Modal>
 
-                <FlatList
-                    extraData={true}
-                    data={
-                        this.props.groups.filter(group => {
-                            let text = this.state.searchText.toLowerCase();
+            <Modal
+                transparent={true}
+                visible={modalVisible}
+                animationType={'slide'}
+                onRequestClose={() => {
+                    setModalVisible(false);
+                    setSelectedGroup({});
+                }}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent} >
+                        <TouchableOpacity style={styles.modalButtonContainer} onPress={goToEdition} >
+                            <View style={styles.modalButtonContent}>
+                                <MaterialCommunityIcons name="file-document-edit" size={25} />
+                                <Text style={styles.modalButtonText}>{loc.editButtonLabel(props.lang)}</Text>
+                                <MaterialCommunityIcons name="chevron-right" size={30} />
+                            </View>
+                        </TouchableOpacity>
 
-                            if (text.trim() === '') {
-                                return group
-                            } else {
-                                if (group.name.toLowerCase().includes(text.trim())) {
-                                    return group
-                                }
-                            }
-                        })
-                    }
-                    renderItem={this.renderItem}
-                    ListEmptyComponent={() =>
-                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                            <Text>{loc.noGroupsToShowMessage(this.props.lang)}</Text>
-                        </View>
-                    }
-                    ItemSeparatorComponent={() =>
-                        <View style={{
-                            height: 5
-                        }}></View>
-                    }
-                    onRefresh={this.refreshGroupList}
-                    refreshing={this.state.refreshingList}
-                    keyExtractor={(item => item.id.toString())}
-                ></FlatList>
+                        <TouchableOpacity style={styles.modalButtonContainer} onPress={showGroupDevices} >
+                            <View style={styles.modalButtonContent}>
+                                <MaterialCommunityIcons name="eight-track" size={25} />
+                                <Text style={styles.modalButtonText}>{loc.associatedDevicesLabel(props.lang)}</Text>
+                                <MaterialCommunityIcons name="chevron-right" size={30} />
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={[styles.modalButtonContainer, { backgroundColor: 'rgba(255,0,0,0.3)' }]} onPress={deleteGroup}>
+                            <View style={styles.modalButtonContent}>
+                                <MaterialCommunityIcons name="delete" size={25} />
+                                <Text style={styles.modalButtonText}>{loc.deleteButtonLabel(props.lang)}</Text>
+                                <MaterialCommunityIcons name="chevron-right" size={30} />
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={[styles.modalButtonContainer, { backgroundColor: 'transparent' }]}
+                            onPress={() => {setModalVisible(false)}}>
+                            <View style={styles.modalButtonContent}>
+                                <Text style={[styles.modalButtonText, { textAlign: 'center', marginLeft: 0 }]}>{loc.cancelButtonLabel(props.lang)}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            <View style={styles.searchContainer}>
+                <FontAwesome name="search" size={20} color="#151E44" />
+                <TextInput
+                    style={{ flex: 1, fontSize: 16, marginLeft: 10, color: '#151E44' }}
+                    keyboardType="web-search"
+                    placeholder={loc.searchField(props.lang)}
+                    onChangeText={(text) => {setSearchText(text)}}
+                    value={searchText}
+                />
+                {
+                    searchText.trim() !== '' &&
+                    <FontAwesome style={{ marginLeft: 10 }} name="times" size={20} color="#151E4499" onPress={() => { setSearchText('') }} />
+                }
             </View>
-        )
-    }
+
+            <FlatList
+                extraData={true}
+                data={
+                    groups.filter(group => {
+                        let text = searchText.toLowerCase();
+
+                        if (text.trim() === '') {
+                            return group
+                        } else {
+                            if (group.name.toLowerCase().includes(text.trim())) {
+                                return group
+                            }
+                        }
+                    })
+                }
+                renderItem={renderItem}
+                ListEmptyComponent={() =>
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text>{loc.noGroupsToShowMessage(props.lang)}</Text>
+                    </View>
+                }
+                ItemSeparatorComponent={() =>
+                    <View style={{
+                        height: 5
+                    }}></View>
+                }
+                onRefresh={refreshGroupList}
+                refreshing={refreshingList}
+                keyExtractor={(item => item.id.toString())}
+            ></FlatList>
+        </View>
+    )
 }
 
 const styles = StyleSheet.create({
@@ -370,16 +351,9 @@ const mapStateToProps = (state) => {
     return {
         lang: state.appReducer.lang,
         serverUrl: state.appReducer.serverUrl,
-        isLoading: state.appReducer.isLoading,
-        groups: state.groupReducer.groups,
         user: state.userReducer.user
     }
 }
 
-export default connect(mapStateToProps, {
-    setIsLoading,
-    setGroups,
-    setDevices,
-    setDevicesModels
-})(Groups)
+export default connect(mapStateToProps, null)(Groups)
 

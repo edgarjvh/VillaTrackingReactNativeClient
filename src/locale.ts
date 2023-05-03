@@ -408,6 +408,9 @@ export default class Locale {
   historyDetailsTitle = (lang: String = "es") => {
     return lang === "es" ? "Detalles de Historial" : "History Details";
   };
+  sendCommandTitle = (lang: String = "es") => {
+    return lang === "es" ? "Enviar Comando" : "Send Command";
+  };
   historyTitle = (lang: String = "es") => {
     return lang === "es" ? "Historial" : "History";
   };
@@ -487,6 +490,9 @@ export default class Locale {
   };
   accOffLabel = (lang: String = "es") => {
     return lang === "es" ? "Ignición OFF" : "Ignition OFF";
+  };
+  overSpeedLabel = (lang: String = "es") => {
+    return lang === "es" ? "Exceso de Velocidad" : "Over Speed";
   };
   distanceLabel = (lang: String = "es") => {
     return lang === "es" ? "Distancia" : "Distance";
@@ -710,5 +716,13 @@ export default class Locale {
   addressText = (lang: String = "es") => {
     return lang === "es" ? "Dirección" : "Address";
   };
-
+  noReports = (lang: String = "es") => {
+    return lang === "es" ? "No hay reportes todavía" : "No reports yet";
+  };
+  startEngineButtonTitle = (lang: String = "es") => {
+    return lang === "es" ? "Encender Motor" : "Start Engine";
+  };
+  stopEngineButtonTitle = (lang: String = "es") => {
+    return lang === "es" ? "Apagar Motor" : "Stop Engine";
+  };
 }

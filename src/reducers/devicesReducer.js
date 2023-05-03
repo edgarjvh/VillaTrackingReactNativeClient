@@ -6,6 +6,7 @@ export const devicesReducer = (state = {
     deviceModels: [],
     historyData: [],
     coordsData: [],
+    devicesLocations: [],
     historyType: 'locations',
     historyHigherSpeed: 0,
     historyDistance: 0,
@@ -85,6 +86,12 @@ export const devicesReducer = (state = {
             state = {
                 ...state,
                 historyFuelConsumption: action.payload
+            }
+            break;
+        case deviceConstants.SET_DEVICES_LOCATIONS:
+            state = {
+                ...state,
+                devicesLocations: action.payload
             }
             break;
         default:

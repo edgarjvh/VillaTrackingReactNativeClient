@@ -1,21 +1,10 @@
-import React, { Component } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, Picker, Modal, Alert, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, Modal, Alert, TouchableOpacity } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { connect } from 'react-redux';
 import Locale from './../locale.ts';
 import { HeaderButtons, HeaderButton, Item } from 'react-navigation-header-buttons';
-import {
-    setIsLoading,
-    setDeviceHistoryType,
-    setDeviceHistory,
-    setDeviceHistoryCoords,
-    setDeviceHistoryHigherSpeed,
-    setDeviceHistoryDistance,
-    setDeviceHistoryFuelConsumption,
-    setDeviceHistoryTimeMove,
-    setDeviceHistoryTimeStop,
-    setDeviceHistoryAlertsTime
-} from "./../actions";
 import axios from "axios";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import moment from 'moment-timezone';
@@ -31,336 +20,283 @@ const MaterialHeaderButtons = (props) => {
 
 const loc = new Locale();
 
-class History extends Component {
+const History = (props) => {
+    const [selectedGroup, setSelectedGroup] = useState({});
+    const [selectedDevice, setSelectedDevice] = useState({});
+    const [selectedType, setSelectedType] = useState('locations');
+    const [dateFrom, setDateFrom] = useState(Number(moment().set({ hour: 0, minute: 0, second: 0, millisecond: 0 }).format('x')));
+    const [dateTo, setDateTo] = useState(Number(moment().set({ hour: 23, minute: 59, second: 0, millisecond: 0 }).format('x')));
+    const [showDate, setShowDate] = useState('');
+    const [mode, setMode] = useState('date');
+    const [groups, setGroups] = useState([]);
+    const [devices, setDevices] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    constructor(props) {
-        super(props);
-
-        let timestampsFrom = Number(moment().set({ hour: 0, minute: 0, second: 0, millisecond: 0 }).format('x'));
-        let timestampsTo = Number(moment().set({ hour: 23, minute: 59, second: 0, millisecond: 0 }).format('x'));
-
-        this.state = {
-            selectedGroup: '0',
-            selectedDevice: '0',
-            selectedType: 'locations',
-            dateFrom: timestampsFrom,
-            dateTo: timestampsTo,
-            showDate: '',
-            mode: 'date',
-            groupDevices: this.props.devices.map(device => {
-                return device;
-            })
-        }
-
-        this.props.navigation.setOptions({
+    useEffect(() => {
+        props.navigation.setOptions({
             headerRight: () => (
                 <MaterialHeaderButtons>
-                    <Item title="search" disabled={this.state.selectedDevice === '0'} iconName="database-search" onPress={this.submitSearch}
-                        color={this.state.selectedDevice === '0' ? 'rgba(0,0,0,0.3)' : 'black'} />
-                    <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
+                    <Item title="search" disabled={(selectedDevice?.id || 0) === 0} iconName="database-search" onPress={submitSearch}
+                        color={(selectedDevice?.id || 0) === 0 ? 'rgba(0,0,0,0.3)' : 'black'} />
+                    <Item title="menu" iconName="menu" onPress={() => props.navigation.toggleDrawer()} />
                 </MaterialHeaderButtons>
             )
         })
-    }
 
-    componentDidUpdate() {
-        this.props.navigation.setOptions({
-            headerTitle: loc.historyLabelText(this.props.lang)
+        props.navigation.setOptions({
+            headerTitle: loc.historyLabelText(props.lang)
         })
-    }
+    })
 
-    componentDidMount() {
-        this.props.navigation.setOptions({
-            headerTitle: loc.historyLabelText(this.props.lang)
-        })
-    }
+    useEffect(() => {
+        axios.post(props.serverUrl + '/getGroupsByUser', {user_id: props.user.id}).then(res => {
+            if (res.data.result === 'OK'){
+                setGroups(res.data.groups);
+            }
+        }).catch(e => {
+            console.log(e);
+        }).finally(() => {
+            setIsLoading(false);
+        });
+    }, [])
 
-    dateTimeFromChange = async (e, d) => {
+    useEffect(() => {
+        if ((selectedGroup?.id || 0) === 0){
+            setDevices(props.devices.map(device => device));
+        }else{            
+            setDevices(props.devices.filter(device => (device.groups || []).find(x => x.id === selectedGroup.id) ));
+        }
+    }, [selectedGroup])
+
+    const dateTimeFromChange = (e, d) => {
         if (d === undefined) {
-            await this.setState({
-                showDate: '',
-                mode: 'date'
-            });
+            setShowDate('');
+            setMode('date');
             return;
         }
 
-        if (this.state.mode === 'date') {
-            await this.setState({
-                dateFrom: Number(moment(d).format('x')),
-                mode: 'time'
-            })
+        if (mode === 'date') {
+            setDateFrom(Number(moment(d).format('x')));
+            setMode('time');
         } else {
-            await this.setState({
-                showDate: '',
-                dateFrom: Number(moment(d).format('x')),
-                mode: 'date'
-            })
+            setShowDate('');
+            setDateFrom(Number(moment(d).format('x')));
+            setMode('date');
         }
     }
 
-    dateTimeToChange = async (e, d) => {
+    const dateTimeToChange = (e, d) => {
         if (d === undefined) {
-            await this.setState({
-                showDate: '',
-                mode: 'date'
-            });
+            setShowDate('');
+            setMode('date');
             return;
         }
 
-        if (this.state.mode === 'date') {
-            await this.setState({
-                dateTo: Number(moment(d).format('x')),
-                mode: 'time'
-            })
+        if (mode === 'date') {
+            setDateTo(Number(moment(d).format('x')));
+            setMode('time');
         } else {
-            await this.setState({
-                showDate: '',
-                dateTo: Number(moment(d).format('x')),
-                mode: 'date'
-            })
+            setShowDate('');
+            setDateTo(Number(moment(d).format('x')));
+            setMode('date');
         }
     }
 
-    submitSearch = () => {
-
-        if (this.state.dateFrom >= this.state.dateTo) {
+    const submitSearch = () => {
+        if (dateFrom >= dateTo) {
             Alert.alert(
-                loc.invalidDatesTitle(this.props.lang),
-                loc.dateFromGreaterDateToMessage(this.props.lang)
+                loc.invalidDatesTitle(props.lang),
+                loc.dateFromGreaterDateToMessage(props.lang)
             )
             return;
         }
 
         let data = {
-            historyType: this.state.selectedType,
-            deviceId: this.state.selectedDevice,
-            dateFrom: moment(this.state.dateFrom).format('YYYY-MM-DD HH:mm:ss'),
-            dateTo: moment(this.state.dateTo).format('YYYY-MM-DD HH:mm:ss')
+            historyType: selectedType,
+            deviceId: selectedDevice.id,
+            dateFrom: moment(dateFrom).format('YYYY-MM-DD HH:mm:ss'),
+            dateTo: moment(dateTo).format('YYYY-MM-DD HH:mm:ss')
         }
 
-        this.props.setIsLoading(true);
+        setIsLoading(true);
 
-        axios.post(this.props.serverUrl + '/getDeviceHistory',
+        axios.post(props.serverUrl + '/getDeviceHistory',
             data,
             {
                 headers: {
                     "Content-Type": "application/json"
                 }
             }
-        ).then(async res => {
-            let {
-                result,
-                newCount,
-                distance,
-                fuelConsumption,
-                traces,
-                coords,
-                timeMove,
-                timeStop,
-                higherSpeed,
-                alertsTime
-            } = res.data;
+        ).then(res => {
+            let historyData = {
+                ...selectedDevice,
+                ...res.data,
+                selectedType
+            };
+            if (res.data.result === 'OK') {
+                setIsLoading(false);
 
-            if (result === 'OK') {
-                await this.props.setIsLoading(false);
-
-                if (newCount > 0) {
-                    await this.props.setDeviceHistoryType(this.state.selectedType);
-                    await this.props.setDeviceHistory(traces);
-                    await this.props.setDeviceHistoryCoords(coords);
-                    await this.props.setDeviceHistoryHigherSpeed(higherSpeed);
-                    await this.props.setDeviceHistoryDistance(distance);
-                    await this.props.setDeviceHistoryFuelConsumption(fuelConsumption);
-                    await this.props.setDeviceHistoryTimeMove(timeMove);
-                    await this.props.setDeviceHistoryTimeStop(timeStop);
-                    await this.props.setDeviceHistoryAlertsTime(alertsTime);
-                    this.props.navigation.navigate('HistoryDetails', data);
+                if (res.data.newCount > 0) {
+                    props.navigation.navigate('HistoryDetails', historyData);
                 } else {
                     Alert.alert(
-                        loc.noDeviceHistoryTitle(this.props.lang),
-                        loc.noDeviceHistoryMessage(this.props.lang)
+                        loc.noDeviceHistoryTitle(props.lang),
+                        loc.noDeviceHistoryMessage(props.lang)
                     )
                 }
             } else {
-                await this.props.setIsLoading(false);
-                Alert.alert(
-                    'Error',
-                    loc.deviceHistoryErrorMessage(this.props.lang)
-                )
+                setIsLoading(false);
+                Alert.alert('Error', loc.deviceHistoryErrorMessage(props.lang))
             }
         }).catch(e => {
             console.log(e);
         });
     }
 
-    onGroupValueChange = (value, index) => {
-        console.log('group: ', value, typeof value)
-
-        if (value === '0') {
-            this.setState({
-                selectedGroup: value,
-                selectedDevice: '0',
-                groupDevices: this.props.devices.map(device => {
-                    return device;
-                })
-            })
-        } else {
-            this.setState({
-                selectedGroup: value,
-                selectedDevice: '0',
-                groupDevices: this.props.devices.filter(device => {
-                    return device.groups.includes(Number(value));
-                })
-            })
-        }
+    const onGroupValueChange = (value, index) => {
+        setSelectedGroup(groups.find(x => x.id.toString() === value) || {});
+        setSelectedDevice({});
     }
 
-    onDeviceValueChange = (value, index) => {
-        console.log('device: ', value, typeof value)
-        this.setState({
-            selectedDevice: value
-        })
+    const onDeviceValueChange = (value, index) => {        
+        setSelectedDevice(props.devices.find(x => x.id.toString() === value) || {});
     }
 
-    render() {
-        return (
-            <View style={styles.container}>
-                {
-                    this.props.isLoading &&
-                    <View style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        zIndex: 5
-                    }}>
-                        <ActivityIndicator size='large' color='white' />
-                    </View>
-                }
-                <View style={styles.stackHeader}>
-                    <ScrollView style={styles.mainScrollView}>
-
-                        <View style={styles.fieldContainer}>
-                            <Text style={styles.fieldLabel}>{loc.groupLabelText(this.props.lang)} *</Text>
-                            <Picker
-                                style={styles.fieldInput}
-                                selectedValue={this.state.selectedGroup}
-                                onValueChange={this.onGroupValueChange}
-                            >
-                                <Picker.Item label={loc.allPluralText(this.props.lang)} value='0' />
-
-                                {
-                                    this.props.groups.map(group => {
-                                        return (
-                                            <Picker.Item
-                                                label={group.name}
-                                                value={group.id.toString()}
-                                                key={group.id} />
-                                        )
-                                    })
-                                }
-                            </Picker>
-                        </View>
-
-                        <View style={styles.fieldContainer}>
-                            <Text style={styles.fieldLabel}>{loc.deviceLabel(this.props.lang)} *</Text>
-                            <Picker
-                                style={styles.fieldInput}
-                                selectedValue={this.state.selectedDevice}
-                                onValueChange={this.onDeviceValueChange}
-                            >
-                                <Picker.Item label={loc.selectPickerItemLabel(this.props.lang)} value='0' />
-
-                                {
-                                    this.state.groupDevices.map(device => {
-                                        return (
-                                            <Picker.Item
-                                                label={
-                                                    device.imei + ' (' + device.license_plate + ') ' + device.vehicle
-                                                }
-                                                value={device.id.toString()}
-                                                key={device.id} />
-                                        )
-                                    })
-                                }
-                            </Picker>
-                        </View>
-
-                        <View style={styles.fieldContainer}>
-                            <Text style={styles.fieldLabel}>{loc.searchTypeLabel(this.props.lang)} *</Text>
-                            <Picker
-                                style={styles.fieldInput}
-                                selectedValue={this.state.selectedType}
-                                onValueChange={(value, index) => this.setState({ selectedType: value })}
-                            >
-                                <Picker.Item label={loc.locationsPickerItemText(this.props.lang)} value='locations' />
-                                <Picker.Item label={loc.eventsPickerItemText(this.props.lang)} value='alerts' />
-                            </Picker>
-                        </View>
-
-                        <View style={styles.fieldContainer}>
-                            <Text style={styles.fieldLabel}>{loc.dateAndTimeLabel(this.props.lang)} *</Text>
-
-                            <View style={[styles.fieldInput, {
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'space-between'
-                            }]}>
-                                <Text>{loc.fromLabel(this.props.lang)}:</Text>
-
-                                <View style={styles.dateTimeContainer}>
-                                    <TouchableOpacity activeOpacity={0.5} style={styles.dateTimeTouchable} onPress={() => this.setState({ showDate: 'from' })}>
-                                        <Text>{moment(this.state.dateFrom).format('YYYY-MM-DD') + ' ' + moment(this.state.dateFrom).format('HH:mm')}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            <View style={[styles.fieldInput, {
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'space-between'
-                            }]}>
-                                <Text>{loc.toLabel(this.props.lang)}:</Text>
-
-                                <View style={styles.dateTimeContainer}>
-                                    <TouchableOpacity activeOpacity={0.5} style={styles.dateTimeTouchable} onPress={() => this.setState({ showDate: 'to' })}>
-                                        <Text>{moment(this.state.dateTo).format('YYYY-MM-DD') + ' ' + moment(this.state.dateTo).format('HH:mm')}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            {
-                                (this.state.showDate === 'from') &&
-                                <DateTimePicker
-                                    testID='datePickerFrom'
-                                    mode={this.state.mode}
-                                    display='default'
-                                    value={this.state.dateFrom}
-                                    onChange={this.dateTimeFromChange}
-                                    onTouchCancel={false}
-                                />
-                            }
-
-                            {
-                                (this.state.showDate === 'to') &&
-                                <DateTimePicker
-                                    testID='datePickerFrom'
-                                    mode={this.state.mode}
-                                    display='default'
-                                    value={this.state.dateTo}
-                                    onChange={this.dateTimeToChange}
-                                    onTouchCancel={false}
-                                />
-                            }
-
-                        </View>
-
-                    </ScrollView>
+    return (
+        <View style={styles.container}>
+            {
+                isLoading &&
+                <View style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    zIndex: 5
+                }}>
+                    <ActivityIndicator size='large' color='white' />
                 </View>
+            }
+            <View style={styles.stackHeader}>
+                <ScrollView style={styles.mainScrollView}>
+
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.fieldLabel}>{loc.groupLabelText(props.lang)} *</Text>
+                        <Picker
+                            style={styles.fieldInput}
+                            selectedValue={(selectedGroup?.id || '0').toString()}
+                            onValueChange={onGroupValueChange}
+                        >
+                            <Picker.Item label={loc.allPluralText(props.lang)} value='0' />
+
+                            {
+                                groups.map(group => {
+                                    return (
+                                        <Picker.Item
+                                            label={group.name}
+                                            value={group.id.toString()}
+                                            key={group.id} />
+                                    )
+                                })
+                            }
+                        </Picker>
+                    </View>
+
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.fieldLabel}>{loc.deviceLabel(props.lang)} *</Text>
+                        <Picker
+                            style={styles.fieldInput}
+                            selectedValue={(selectedDevice?.id || '0').toString()}
+                            onValueChange={onDeviceValueChange}
+                        >
+                            <Picker.Item label={loc.selectPickerItemLabel(props.lang)} value='0' />
+
+                            {
+                                devices.map(device => (
+                                    <Picker.Item
+                                        label={
+                                            device.imei + ' (' + device.license_plate + ') ' + device.vehicle
+                                        }
+                                        value={device.id.toString()}
+                                        key={device.id} />
+                                ))                             
+                            }
+                        </Picker>
+                    </View>
+
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.fieldLabel}>{loc.searchTypeLabel(props.lang)} *</Text>
+                        <Picker
+                            style={styles.fieldInput}
+                            selectedValue={selectedType}
+                            onValueChange={(value, index) => setSelectedType(value)}
+                        >
+                            <Picker.Item label={loc.locationsPickerItemText(props.lang)} value='locations' />
+                            <Picker.Item label={loc.eventsPickerItemText(props.lang)} value='alerts' />
+                        </Picker>
+                    </View>
+
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.fieldLabel}>{loc.dateAndTimeLabel(props.lang)} *</Text>
+
+                        <View style={[styles.fieldInput, {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }]}>
+                            <Text>{loc.fromLabel(props.lang)}:</Text>
+
+                            <View style={styles.dateTimeContainer}>
+                                <TouchableOpacity activeOpacity={0.5} style={styles.dateTimeTouchable} onPress={() => setShowDate('from')}>
+                                    <Text>{moment(dateFrom).format('YYYY-MM-DD') + ' ' + moment(dateFrom).format('HH:mm')}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={[styles.fieldInput, {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }]}>
+                            <Text>{loc.toLabel(props.lang)}:</Text>
+
+                            <View style={styles.dateTimeContainer}>
+                                <TouchableOpacity activeOpacity={0.5} style={styles.dateTimeTouchable} onPress={() => setShowDate('to')}>
+                                    <Text>{moment(dateTo).format('YYYY-MM-DD') + ' ' + moment(dateTo).format('HH:mm')}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {
+                            (showDate === 'from') &&
+                            <DateTimePicker
+                                testID='datePickerFrom'
+                                mode={mode}
+                                display='default'
+                                value={new Date(dateFrom)}
+                                onChange={dateTimeFromChange}
+                                onTouchCancel={false}
+                            />
+                        }
+
+                        {
+                            (showDate === 'to') &&
+                            <DateTimePicker
+                                testID='datePickerFrom'
+                                mode={mode}
+                                display='default'
+                                value={new Date(dateTo)}
+                                onChange={dateTimeToChange}
+                                onTouchCancel={false}
+                            />
+                        }
+
+                    </View>
+
+                </ScrollView>
             </View>
-        )
-    }
+        </View>
+    )
 }
 
 const styles = StyleSheet.create({
@@ -423,22 +359,10 @@ const styles = StyleSheet.create({
 const mapStateToProps = (state) => {
     return {
         lang: state.appReducer.lang,
+        user: state.userReducer.user,
         serverUrl: state.appReducer.serverUrl,
-        devices: state.devicesReducer.devices,
-        groups: state.groupReducer.groups,
-        isLoading: state.appReducer.isLoading
+        devices: state.devicesReducer.devices
     }
 }
 
-export default connect(mapStateToProps, {
-    setIsLoading,
-    setDeviceHistoryType,
-    setDeviceHistory,
-    setDeviceHistoryCoords,
-    setDeviceHistoryHigherSpeed,
-    setDeviceHistoryDistance,
-    setDeviceHistoryFuelConsumption,
-    setDeviceHistoryTimeMove,
-    setDeviceHistoryTimeStop,
-    setDeviceHistoryAlertsTime
-})(History)
+export default connect(mapStateToProps, null)(History)

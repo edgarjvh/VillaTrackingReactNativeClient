@@ -83,3 +83,10 @@ export const setDeviceHistoryFuelConsumption = liters => {
         payload: liters
     }
 }
+
+export const setDevicesLocations = locations => {
+    return {
+        type: deviceConstants.SET_DEVICES_LOCATIONS,
+        payload: locations
+    }
+}

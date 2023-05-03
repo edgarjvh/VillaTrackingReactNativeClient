@@ -1,402 +1,396 @@
-import React, { Component } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { connect } from "react-redux";
 import { View, Text, StyleSheet, TouchableHighlight, Modal, TouchableOpacity, Image, ActivityIndicator } from "react-native";
 import MapView, { Marker, Polyline, Callout, Circle } from 'react-native-maps';
 import { MaterialCommunityIcons, Feather, MaterialIcons } from 'react-native-vector-icons';
 import Locale from './../locale';
-import { setIsLoading } from "./../actions";
 
 const loc = new Locale();
 
+const HistoryMap = (props) => {
+    const [mapType, setMapType] = useState('standard');
+    const [showMaptypes, setShowMaptypes] = useState(false);
+    const [showPolyline, setShowPolyline] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
+    const [coords, setCoords] = useState(props.route.params.coords || []);
+    const [traces, setTraces] = useState(props.route.params.traces || []);
 
-class HistoryMap extends Component {
-    constructor(props) {
-        super(props)
+    const map = useRef();
+    
+    useEffect(() => {
+        setIsLoading(true);
+    }, []);
+    
+    const onMapLayout = () => {
+        setIsLoading(false);
 
-        this.state = {
-            mapType: 'standard',
-            showMaptypes: false,
-            showPolyline: true
-        }
-    }
-
-    componentDidMount() {
-        this.props.setIsLoading(true);
-    }
-
-    onMapLayout = () => {
-        this.props.setIsLoading(false);
-
-        if (this.map) {
-            this.map.fitToCoordinates(this.props.coordsData);
+        if (map.current) {
+            map.current.fitToCoordinates(coords);
         } else {
             console.log('no map')
         }
     }
 
-    fitCoords = () => {
-        if (this.map) {
-            this.map.fitToCoordinates(this.props.coordsData);
+    const fitCoords = () => {
+        if (map.current) {
+            map.current.fitToCoordinates(coords);
         }
     }
 
-    handleZoomIn = async () => {
-        let curZoom = (await this.map.getCamera()).zoom
+    const handleZoomIn = async () => {
+        let curZoom = (await map.current.getCamera()).zoom
 
-        this.map.animateCamera({
+        map.current.animateCamera({
             zoom: curZoom + 1
         })
     }
 
-    handleZoomOut = async () => {
-        let curZoom = (await this.map.getCamera()).zoom
+    const handleZoomOut = async () => {
+        let curZoom = (await map.current.getCamera()).zoom
 
-        this.map.animateCamera({
+        map.current.animateCamera({
             zoom: curZoom - 1
         })
     }
 
+    return (
+        <View style={styles.container}>
 
-    render() {
-        return (
-            <View style={styles.container}>
+            <Modal
+                transparent={true}
+                visible={isLoading}
+                animationType={'slide'}
+                onRequestClose={() => setIsLoading(false)}
+            >
+                <View style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    zIndex: 5
+                }}>
+                    <ActivityIndicator size='large' color='white' />
+                </View>
+            </Modal>
 
-                <Modal
-                    transparent={true}
-                    visible={this.props.isLoading}
-                    animationType={'slide'}
-                    onRequestClose={() => this.props.setIsLoading(false)}
-                >
-                    <View style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        zIndex: 5
-                    }}>
-                        <ActivityIndicator size='large' color='white' />
+            <StatusBar style="dark" />
+            {
+                isLoading &&
+                <View style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    zIndex: 5
+                }}>
+                    <ActivityIndicator size='large' color='white' />
+                </View>
+            }
+
+            <StatusBar style="auto" />
+
+            <Modal
+                visible={showMaptypes}
+                transparent={true}
+                animationType={'slide'}
+            >
+                <View style={styles.modalMaptypesContainer}>
+                    <View style={styles.modalMaptypeClose}>
+                        <TouchableOpacity
+                            activeOpacity={0.5}
+                            onPress={() => setShowMaptypes(false)}
+                        >
+                            <Text
+                                style={{
+                                    color: 'white',
+                                    fontSize: 20
+                                }}>
+                                {
+                                    loc.closeLabel(props.lang)
+                                }
+                            </Text>
+                        </TouchableOpacity>
                     </View>
-                </Modal>
+                    <View style={styles.modalMaptypesContent}>
+                        <View style={styles.modalMapTypeTitle}>
+                            <Text>
+                                {loc.mapTypeLabel(props.lang)}
+                            </Text>
+                        </View>
+                        <View style={styles.modalMapTypesOptionsRow}>
+                            <View style={[styles.modalMaptypeButton, {
+                                backgroundColor: mapType === 'standard' ? '#81BEF7' : '#F2F2F2'
+                            }]}>
+                                <TouchableHighlight
+                                    underlayColor="#58ACFA"
+                                    onPress={() => setMapType('standard')}>
+                                    <Image
+                                        source={require('./../../assets/maptype_standard.jpg')}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            resizeMode: 'cover'
+                                        }} />
 
-                <StatusBar style="dark" />
+                                </TouchableHighlight>
+                                <View>
+                                    <Text style={{ textAlign: 'center', marginTop: 10 }}>
+                                        {
+                                            loc.mapTypeStandardLabel(props.lang)
+                                        }
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <View style={[styles.modalMaptypeButton, {
+                                backgroundColor: mapType === 'satellite' ? '#81BEF7' : '#F2F2F2'
+                            }]}>
+                                <TouchableHighlight
+                                    underlayColor="#58ACFA"
+                                    onPress={() => setMapType('satellite')}>
+                                    <Image
+                                        source={require('./../../assets/maptype_satellite.jpg')}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            resizeMode: 'cover'
+                                        }} />
+
+                                </TouchableHighlight>
+                                <View>
+                                    <Text style={{ textAlign: 'center', marginTop: 10 }}>
+                                        {
+                                            loc.mapTypeSatelliteLabel(props.lang)
+                                        }
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <View style={[styles.modalMaptypeButton, {
+                                backgroundColor: mapType === 'hybrid' ? '#81BEF7' : '#F2F2F2'
+                            }]}>
+                                <TouchableHighlight
+                                    underlayColor="#58ACFA"
+                                    onPress={() => setMapType('hybrid')}>
+                                    <Image
+                                        source={require('./../../assets/maptype_hybrid.jpg')}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            resizeMode: 'cover'
+                                        }} />
+
+                                </TouchableHighlight>
+                                <View>
+                                    <Text style={{ textAlign: 'center', marginTop: 10 }}>
+                                        {
+                                            loc.mapTypeHybridLabel(props.lang)
+                                        }
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        <View style={[styles.modalMapTypeTitle, {
+                            marginTop: 10
+                        }]}>
+                            <Text>
+                                {loc.mapUtilitiesLabel(props.lang)}
+                            </Text>
+                        </View>
+
+                        <View style={[styles.modalMapTypesOptionsRow, {
+                            paddingBottom: 20
+                        }]}>
+                            <View style={[styles.modalMaptypeButton, {
+                                backgroundColor: showPolyline ? '#81BEF7' : '#F2F2F2'
+                            }]}>
+                                <TouchableHighlight
+                                    underlayColor="#58ACFA"
+                                    onPress={() => setShowPolyline(prev => !prev)}>
+                                    <Image
+                                        source={require('./../../assets/markertail.png')}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            resizeMode: 'cover'
+                                        }} />
+
+                                </TouchableHighlight>
+                                <View>
+                                    <Text style={{ textAlign: 'center', marginTop: 10 }}>
+                                        {
+                                            loc.lineLabel(props.lang)
+                                        }
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            <MapView
+                ref={map}
+                provider='google'
+                style={styles.mapStyle}
+                mapType={mapType}
+                zoomTapEnabled={true}
+                zoomEnabled={true}
+                loadingEnabled={true}
+                initialCamera={{
+                    center: {
+                        latitude: 10.4159096,
+                        longitude: -71.4390527
+                    },
+                    pitch: 0,
+                    heading: 0,
+                    altitude: 0,
+                    zoom: 13
+                }}
+                onLayout={onMapLayout}
+            >
                 {
-                    this.props.isLoading &&
-                    <View style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        zIndex: 5
-                    }}>
-                        <ActivityIndicator size='large' color='white' />
-                    </View>
-                }
-
-                <StatusBar style="auto" />
-
-                <Modal
-                    visible={this.state.showMaptypes}
-                    transparent={true}
-                    animationType={'slide'}
-                >
-                    <View style={styles.modalMaptypesContainer}>
-                        <View style={styles.modalMaptypeClose}>
-                            <TouchableOpacity
-                                activeOpacity={0.5}
-                                onPress={() => this.setState({ showMaptypes: false })}
+                    traces.map((trace, index) => {
+                        return (
+                            <Marker
+                                key={trace.id}
+                                coordinate={{
+                                    latitude: trace.latitude,
+                                    longitude: trace.longitude
+                                }}
+                                title={
+                                    trace.date_time === trace.last_date_time ?
+                                        trace.date_time :
+                                        trace.date_time + ' >> ' + trace.last_date_time
+                                }
+                                anchor={{
+                                    x: 0.5,
+                                    y: 0.5
+                                }}
+                                calloutAnchor={{
+                                    x: 0.5,
+                                    y: 0.5
+                                }}
+                                flat={true}
+                                rotation={trace.heading}
+                                image={trace.speed > 0 ?
+                                    require('./../../assets/defaultmove.png') :
+                                    require('./../../assets/defaultstop.png')}
                             >
-                                <Text
-                                    style={{
-                                        color: 'white',
-                                        fontSize: 20
-                                    }}>
-                                    {
-                                        loc.closeLabel(this.props.lang)
-                                    }
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                        <View style={styles.modalMaptypesContent}>
-                            <View style={styles.modalMapTypeTitle}>
-                                <Text>
-                                    {loc.mapTypeLabel(this.props.lang)}
-                                </Text>
-                            </View>
-                            <View style={styles.modalMapTypesOptionsRow}>
-                                <View style={[styles.modalMaptypeButton, {
-                                    backgroundColor: this.state.mapType === 'standard' ? '#81BEF7' : '#F2F2F2'
-                                }]}>
-                                    <TouchableHighlight
-                                        underlayColor="#58ACFA"
-                                        onPress={() => this.setState({ mapType: 'standard' })}>
-                                        <Image
-                                            source={require('./../../assets/maptype_standard.jpg')}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                resizeMode: 'cover'
-                                            }} />
-
-                                    </TouchableHighlight>
-                                    <View>
-                                        <Text style={{ textAlign: 'center', marginTop: 10 }}>
-                                            {
-                                                loc.mapTypeStandardLabel(this.props.lang)
-                                            }
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View style={[styles.modalMaptypeButton, {
-                                    backgroundColor: this.state.mapType === 'satellite' ? '#81BEF7' : '#F2F2F2'
-                                }]}>
-                                    <TouchableHighlight
-                                        underlayColor="#58ACFA"
-                                        onPress={() => this.setState({ mapType: 'satellite' })}>
-                                        <Image
-                                            source={require('./../../assets/maptype_satellite.jpg')}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                resizeMode: 'cover'
-                                            }} />
-
-                                    </TouchableHighlight>
-                                    <View>
-                                        <Text style={{ textAlign: 'center', marginTop: 10 }}>
-                                            {
-                                                loc.mapTypeSatelliteLabel(this.props.lang)
-                                            }
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View style={[styles.modalMaptypeButton, {
-                                    backgroundColor: this.state.mapType === 'hybrid' ? '#81BEF7' : '#F2F2F2'
-                                }]}>
-                                    <TouchableHighlight
-                                        underlayColor="#58ACFA"
-                                        onPress={() => this.setState({ mapType: 'hybrid' })}>
-                                        <Image
-                                            source={require('./../../assets/maptype_hybrid.jpg')}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                resizeMode: 'cover'
-                                            }} />
-
-                                    </TouchableHighlight>
-                                    <View>
-                                        <Text style={{ textAlign: 'center', marginTop: 10 }}>
-                                            {
-                                                loc.mapTypeHybridLabel(this.props.lang)
-                                            }
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-
-                            <View style={[styles.modalMapTypeTitle, {
-                                marginTop: 10
-                            }]}>
-                                <Text>
-                                    {loc.mapUtilitiesLabel(this.props.lang)}
-                                </Text>
-                            </View>
-
-                            <View style={[styles.modalMapTypesOptionsRow, {
-                                paddingBottom: 20
-                            }]}>
-                                <View style={[styles.modalMaptypeButton, {
-                                    backgroundColor: this.state.showPolyline ? '#81BEF7' : '#F2F2F2'
-                                }]}>
-                                    <TouchableHighlight
-                                        underlayColor="#58ACFA"
-                                        onPress={() => this.setState({ showPolyline: !this.state.showPolyline })}>
-                                        <Image
-                                            source={require('./../../assets/markertail.png')}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                resizeMode: 'cover'
-                                            }} />
-
-                                    </TouchableHighlight>
-                                    <View>
-                                        <Text style={{ textAlign: 'center', marginTop: 10 }}>
-                                            {
-                                                loc.lineLabel(this.props.lang)
-                                            }
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-                </Modal>
-
-                <MapView
-                    ref={(el) => { this.map = el }}
-                    provider='google'
-                    style={styles.mapStyle}
-                    mapType={this.state.mapType}
-                    zoomTapEnabled={true}
-                    zoomEnabled={true}
-                    loadingEnabled={true}
-                    initialCamera={{
-                        center: {
-                            latitude: 10.4159096,
-                            longitude: -71.4390527
-                        },
-                        pitch: 0,
-                        heading: 0,
-                        altitude: 0,
-                        zoom: 13
-                    }}
-                    onLayout={this.onMapLayout}
-                >
-                    {
-                        this.props.historyData.map((trace, index) => {
-                            return (
-                                <Marker
-                                    key={trace.id}
-                                    coordinate={{
-                                        latitude: trace.latitude,
-                                        longitude: trace.longitude
-                                    }}
-                                    title={
-                                        trace.date_time === trace.last_date_time ?
-                                            trace.date_time :
-                                            trace.date_time + ' >> ' + trace.last_date_time
-                                    }
-                                    anchor={{
-                                        x: 0.5,
-                                        y: 0.5
-                                    }}
-                                    calloutAnchor={{
-                                        x: 0.5,
-                                        y: 0.5
-                                    }}
-                                    flat={true}
-                                    rotation={trace.heading}
-                                    image={trace.speed > 0 ?
-                                        require('./../../assets/defaultmove.png') :
-                                        require('./../../assets/defaultstop.png')}
-                                >
-                                    <Callout tooltip={true}>
-                                        <View style={styles.calloutContainer}>
-                                            <View style={styles.calloutContent}>
-                                                <View style={styles.calloutTitleContainer}>
-                                                    <Text style={{ color: '#fff' }}>
-                                                        {loc.recordLabel(this.props.lang)} N°: {(index + 1).toString()}
-                                                    </Text>
-                                                </View>
-
-                                                <View style={styles.calloutSubtitleContainer}>
-                                                    <Text style={{ textAlign: 'center' }}>
-                                                        {loc.dateTimeLabel(this.props.lang)}
-                                                    </Text>
-                                                </View>
-
-                                                <View style={styles.calloutInfo}>
-                                                    <Text style={{ textAlign: 'center' }}>
-                                                        {
-                                                            trace.date_time === trace.last_date_time ?
-                                                                trace.date_time :
-                                                                trace.date_time + ' > ' + trace.last_date_time
-                                                        }
-                                                    </Text>
-                                                </View>
-
-                                                <View style={styles.calloutSubtitleContainer}>
-                                                    <Text style={{ textAlign: 'center' }}>
-                                                        {loc.speedLabel(this.props.lang)}
-                                                    </Text>
-                                                </View>
-
-                                                <View style={styles.calloutInfo}>
-                                                    <Text style={{ textAlign: 'center' }}>
-                                                        {trace.speed} Km/H
-                                                    </Text>
-                                                </View>
+                                <Callout tooltip={true}>
+                                    <View style={styles.calloutContainer}>
+                                        <View style={styles.calloutContent}>
+                                            <View style={styles.calloutTitleContainer}>
+                                                <Text style={{ color: '#fff' }}>
+                                                    {loc.recordLabel(props.lang)} N°: {(index + 1).toString()}
+                                                </Text>
                                             </View>
-                                            <View style={styles.calloutNubContainer}>
-                                                <View style={styles.calloutNub}></View>
+
+                                            <View style={styles.calloutSubtitleContainer}>
+                                                <Text style={{ textAlign: 'center' }}>
+                                                    {loc.dateTimeLabel(props.lang)}
+                                                </Text>
+                                            </View>
+
+                                            <View style={styles.calloutInfo}>
+                                                <Text style={{ textAlign: 'center' }}>
+                                                    {
+                                                        trace.date_time === trace.last_date_time ?
+                                                            trace.date_time :
+                                                            trace.date_time + ' > ' + trace.last_date_time
+                                                    }
+                                                </Text>
+                                            </View>
+
+                                            <View style={styles.calloutSubtitleContainer}>
+                                                <Text style={{ textAlign: 'center' }}>
+                                                    {loc.speedLabel(props.lang)}
+                                                </Text>
+                                            </View>
+
+                                            <View style={styles.calloutInfo}>
+                                                <Text style={{ textAlign: 'center' }}>
+                                                    {trace.speed} Km/H
+                                                </Text>
                                             </View>
                                         </View>
-                                    </Callout>
-                                </Marker>
-                            )
-                        })
-                    }
+                                        <View style={styles.calloutNubContainer}>
+                                            <View style={styles.calloutNub}></View>
+                                        </View>
+                                    </View>
+                                </Callout>
+                            </Marker>
+                        )
+                    })
+                }
 
+                {
+                    showPolyline &&
+                    <Polyline
+                        coordinates={coords}
+                        strokeColor={'#000'}
+                        strokeWidth={2}
+                    />
+                }
+            </MapView>
+
+            <TouchableHighlight
+                onPress={handleZoomIn}
+                underlayColor="#151E4499"
+                style={[
+                    styles.btnOnMap,
                     {
-                        this.state.showPolyline &&
-                        <Polyline
-                            coordinates={this.props.coordsData}
-                            strokeColor={'#000'}
-                            strokeWidth={2}
-                        />
+                        right: 20,
+                        bottom: 170
                     }
-                </MapView>
+                ]}>
+                <Feather name="zoom-in" size={20} color="#fff"></Feather>
+            </TouchableHighlight>
 
-                <TouchableHighlight
-                    onPress={this.handleZoomIn}
-                    underlayColor="#151E4499"
-                    style={[
-                        styles.btnOnMap,
-                        {
-                            right: 20,
-                            bottom: 170
-                        }
-                    ]}>
-                    <Feather name="zoom-in" size={20} color="#fff"></Feather>
-                </TouchableHighlight>
+            <TouchableHighlight
+                onPress={handleZoomOut}
+                underlayColor="#151E4499"
+                style={[
+                    styles.btnOnMap,
+                    {
+                        right: 20,
+                        bottom: 120
+                    }
+                ]}>
+                <Feather name="zoom-out" size={20} color="#fff"></Feather>
+            </TouchableHighlight>
 
-                <TouchableHighlight
-                    onPress={this.handleZoomOut}
-                    underlayColor="#151E4499"
-                    style={[
-                        styles.btnOnMap,
-                        {
-                            right: 20,
-                            bottom: 120
-                        }
-                    ]}>
-                    <Feather name="zoom-out" size={20} color="#fff"></Feather>
-                </TouchableHighlight>
+            <TouchableHighlight
+                onPress={() => setShowMaptypes(true)}
+                underlayColor="#151E4499"
+                style={[
+                    styles.btnOnMap,
+                    {
+                        right: 20,
+                        bottom: 70
+                    }
+                ]}>
+                <MaterialCommunityIcons name="map" size={20} color="#fff"></MaterialCommunityIcons>
+            </TouchableHighlight>
 
-                <TouchableHighlight
-                    onPress={() => this.setState({ showMaptypes: true })}
-                    underlayColor="#151E4499"
-                    style={[
-                        styles.btnOnMap,
-                        {
-                            right: 20,
-                            bottom: 70
-                        }
-                    ]}>
-                    <MaterialCommunityIcons name="map" size={20} color="#fff"></MaterialCommunityIcons>
-                </TouchableHighlight>
-
-                <TouchableHighlight
-                    onPress={this.fitCoords}
-                    underlayColor="#151E4499"
-                    style={[
-                        styles.btnOnMap,
-                        {
-                            right: 20,
-                            bottom: 20
-                        }
-                    ]}>
-                    <MaterialCommunityIcons name="fit-to-page-outline" size={20} color="#fff"></MaterialCommunityIcons>
-                </TouchableHighlight>
-            </View>
-        )
-    }
+            <TouchableHighlight
+                onPress={fitCoords}
+                underlayColor="#151E4499"
+                style={[
+                    styles.btnOnMap,
+                    {
+                        right: 20,
+                        bottom: 20
+                    }
+                ]}>
+                <MaterialCommunityIcons name="fit-to-page-outline" size={20} color="#fff"></MaterialCommunityIcons>
+            </TouchableHighlight>
+        </View>
+    )
 }
 
 const styles = StyleSheet.create({
@@ -536,6 +530,4 @@ const mapStateToProps = (state) => {
     }
 }
 
-export default connect(mapStateToProps, {
-    setIsLoading
-})(HistoryMap)
+export default connect(mapStateToProps, null)(HistoryMap)

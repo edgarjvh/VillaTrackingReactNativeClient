@@ -1,10 +1,10 @@
-import React, { Component } from "react";
+import React, { useEffect, useState } from "react";
 import { connect } from "react-redux";
 import { createMaterialBottomTabNavigator } from "@react-navigation/material-bottom-tabs";
 import { MaterialCommunityIcons } from 'react-native-vector-icons';
 import HistoryLogs from "./../screens/historyLogs";
 import HistoryMap from "./../screens/historyMap";
-import historyGraphs from "./../screens/historyGraphs";
+import HistoryGraphs from "./../screens/historyGraphs";
 import Locate from './../locale.ts'
 import { HeaderButtons, HeaderButton, Item } from 'react-navigation-header-buttons';
 
@@ -19,72 +19,62 @@ const MaterialHeaderButtons = (props) => {
     return <HeaderButtons HeaderButtonComponent={MaterialHeaderButton} {...props} />;
 };
 
-class HistoryDetails extends Component {
-    constructor(props){
-        super(props)
-
-        this.props.navigation.setOptions({
+const HistoryDetails = (props) => {
+    useEffect(() => {
+        props.navigation.setOptions({
             headerRight: () => (
                 <MaterialHeaderButtons>
-                    <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
+                    <Item title="menu" iconName="menu" onPress={() => props.navigation.toggleDrawer()} />
                 </MaterialHeaderButtons>
             )
-        });
-    }
-
-    componentDidUpdate() {
-        this.props.navigation.setOptions({
-            headerTitle: loc.historyTitle(this.props.lang) + ' (' + this.props.historyData[0].imei + ')'
         })
-    }
 
-    componentDidMount() {
-        this.props.navigation.setOptions({
-            headerTitle: loc.historyTitle(this.props.lang) + ' (' + this.props.historyData[0].imei + ')'
+        props.navigation.setOptions({
+            headerTitle: loc.historyTitle(props.lang) + ` (${props.route.params.imei || ''})`
         })
-    }
+    })    
 
-    render() {
-        return (
-            <BottomTabs.Navigator
-                initialRouteName="Logs"
-                activeColor="black"
-                inactiveColor="lightgray"
-                barStyle={{ backgroundColor: '#fff' }}
-            >
-                <BottomTabs.Screen
-                    name="Logs"
-                    component={HistoryLogs}
-                    options={{
-                        tabBarLabel: loc.tabBarLogsLabel(this.props.lang),
-                        tabBarIcon: ({ color }) => (<MaterialCommunityIcons color={color} name="file-document" size={24} />)
-                    }}
-                />
-                <BottomTabs.Screen
-                    name="Graphs"
-                    component={historyGraphs}
-                    options={{
-                        tabBarLabel: loc.tabBarGraphLabel(this.props.lang),
-                        tabBarIcon: ({ color }) => (<MaterialCommunityIcons color={color} name="chart-line" size={24} />)
-                    }}
-                />
-                <BottomTabs.Screen
-                    name="Map"
-                    component={HistoryMap}
-                    options={{
-                        tabBarLabel: loc.tabBarMapLabel(this.props.lang),
-                        tabBarIcon: ({ color }) => (<MaterialCommunityIcons color={color} name="map-clock" size={24} />)
-                    }}
-                />                
-            </BottomTabs.Navigator>
-        )
-    }
+    return (
+        <BottomTabs.Navigator
+            initialRouteName="Logs"
+            activeColor="black"
+            inactiveColor="lightgray"
+            barStyle={{ backgroundColor: '#fff' }}
+        >
+            <BottomTabs.Screen
+                name="Logs"
+                children={() => <HistoryLogs {...props} />}
+                options={{
+                    tabBarLabel: loc.tabBarLogsLabel(props.lang),
+                    tabBarIcon: ({ color }) => (<MaterialCommunityIcons color={color} name="file-document" size={24} />)
+                }}
+
+            />
+            <BottomTabs.Screen
+                name="Graphs"
+                children={() => <HistoryGraphs {...props} />}
+                options={{
+                    tabBarLabel: loc.tabBarGraphLabel(props.lang),
+                    tabBarIcon: ({ color }) => (<MaterialCommunityIcons color={color} name="chart-line" size={24} />)
+                }}
+            />
+            <BottomTabs.Screen
+                name="Map"
+                children={() => <HistoryMap {...props} />}
+                options={{
+                    tabBarLabel: loc.tabBarMapLabel(props.lang),
+                    tabBarIcon: ({ color }) => (<MaterialCommunityIcons color={color} name="map-clock" size={24} />)
+                }}
+            />                
+        </BottomTabs.Navigator>
+    )
 }
 
 const mapStateToProps = (state) => {
     return {
         lang: state.appReducer.lang,
-        historyData: state.devicesReducer.historyData
+        serverUrl: state.appReducer.serverUrl,
+        user: state.userReducer.user
     }
 }
 

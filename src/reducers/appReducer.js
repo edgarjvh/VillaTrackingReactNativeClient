@@ -2,9 +2,12 @@ import { appConstants } from "./../constants";
 
 export const appReducer = (state = {
     lang: 'es',
-    // serverUrl: 'http://192.168.42.136:3000',
-    serverUrl: 'http://192.168.1.100:3000',
-    isLoading: false
+    serverUrl: 'http://villatrackingsocket.ddns.net:8000/api',
+    socketUrl: 'http://villatrackingsocket.ddns.net:3000',
+    // serverUrl: 'http://villasoftgps.ddns.net:8000/api',
+    // socketUrl: 'http://villasoftgps.ddns.net:3000',
+    isLoading: false,
+    socket: null
 }, action) => {
     switch (action.type) {
         case appConstants.SWITCH_LANGUAGE_ES:
@@ -23,6 +26,12 @@ export const appReducer = (state = {
             state = {
                 ...state,
                 isLoading: action.payload
+            }
+            break;
+        case appConstants.SET_SOCKET:
+            state = {
+                ...state,
+                socket: action.payload
             }
             break;
         default:

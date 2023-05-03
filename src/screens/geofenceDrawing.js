@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { connect } from 'react-redux';
 import { View, Text, StyleSheet, ActivityIndicator, Modal, Image, TouchableOpacity, TouchableHighlight } from 'react-native';
 import { MaterialCommunityIcons, FontAwesome, Feather } from 'react-native-vector-icons';
@@ -6,13 +6,6 @@ import Locale from './../locale';
 import { HeaderButtons, HeaderButton, Item } from 'react-navigation-header-buttons';
 import axios from 'axios';
 import MapView, { Polygon, Circle, Marker } from "react-native-maps";
-import {
-    setIsLoading,
-    setGeofencePoints,
-    setGeofenceCenter,
-    setGeofenceRadius,
-    handleMapReady
-} from './../actions';
 import { getDistance } from 'geolib'
 
 const MaterialHeaderButton = (props) => (
@@ -25,113 +18,128 @@ const MaterialHeaderButtons = (props) => {
 
 const loc = new Locale();
 
-class GeofenceDrawing extends Component {
-    constructor(props) {
-        super(props)
+const GeofenceDrawing = (props) => {
+    const [showMapTypes, setShowMapTypes] = useState(false);
+    const [mapType, setMapType] = useState('standard');
+    const [isLoading, setisLoading] = useState();
+    const [selectedGeofence, setSelectedGeofence] = useState({});
 
-        this.state = {
-            showMaptypes: false
-        }
+    const map = useRef();
+    const circle = useRef();
 
-        this.props.navigation.setOptions({
+    useEffect(() => {
+        props.navigation.setOptions({
             headerRight: () => (
                 <MaterialHeaderButtons>
                     {
-                        this.props.geofenceType === 'polygon' &&
+                        (selectedGeofence?.type || 'polygon') === 'polygon' &&
                         <Item
                             title="delete"
                             iconName="backspace"
-                            onPress={this.removeLast}
-                            disabled={this.props.geofencePoints.length === 0}
-                            color={this.props.geofencePoints.length === 0 ? 'rgba(0,0,0,0.3)' : 'black'} />
+                            onPress={removeLast}
+                            disabled={(selectedGeofence?.points || []).length === 0}
+                            color={(selectedGeofence?.points || []).length === 0 ? 'rgba(0,0,0,0.3)' : 'black'} />
                     }
-                    <Item title="clear" iconName="broom" onPress={this.clearMap} />
-                    <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
+                    <Item title="clear" iconName="broom" onPress={clearMap} />
+                    <Item title="menu" iconName="menu" onPress={() => props.navigation.toggleDrawer()} />
                 </MaterialHeaderButtons>
             )
         })
+    })
+
+    useEffect(() => {
+        setSelectedGeofence(props.route.params.selectedGeofence);
+    }, [])
+
+    const clearMap = () => {
+        let geofence = { ...selectedGeofence };
+        geofence.points = [];
+        geofence.center = {};
+        geofence.radius = 0;
+
+        setSelectedGeofence(geofence);
+        props.route.params.setSelectedGeofence(geofence);
     }
 
-    clearMap = () => {
-        this.props.setGeofencePoints([]);
-        this.props.setGeofenceCenter(null);
-        this.props.setGeofenceRadius(0);
-    }
-
-    componentDidMount() {
-        console.log(this.props.geofenceColor + '00')
-    }
-
-    onMapPress = (e) => {
+    const onMapPress = (e) => {
         let { coordinate } = e.nativeEvent;
+        let geofence = { ...selectedGeofence };
 
-        if (this.props.geofenceType === 'polygon') {
-            let points = this.props.geofencePoints.map(point => {
-                return point;
-            });
+        
+
+        if ((selectedGeofence?.type || 'polygon') === 'polygon') {
+            let points = (selectedGeofence?.points || []).map(point => point);
 
             points.push(coordinate);
+            
+            geofence.points = [...points];
 
-            this.props.setGeofencePoints(points);
+            setSelectedGeofence(geofence);
+            props.route.params.setSelectedGeofence(geofence);
         } else {
-            if (this.props.geofenceCenter) {
-                this.props.setGeofenceRadius(getDistance(this.props.geofenceCenter, coordinate));
+            if (selectedGeofence?.center?.latitude) {
+                geofence.radius = getDistance((selectedGeofence?.center || {}), coordinate);
+
+                setSelectedGeofence(geofence);
+                props.route.params.setSelectedGeofence(geofence);
             } else {
-                this.props.setGeofenceCenter(coordinate);
+                geofence.center = coordinate;
+
+                setSelectedGeofence(geofence);
+                props.route.params.setSelectedGeofence(geofence);
             }
         }
     }
 
-    removeLast = () => {
-        let points = this.props.geofencePoints.map(point => {
-            return point;
-        });
-
+    const removeLast = () => {
+        let geofence = { ...selectedGeofence };
+        let points = (selectedGeofence?.points || []).map(point => point);
         points.pop();
+        geofence.points = points;
 
-        this.props.setGeofencePoints(points);
+        setSelectedGeofence(geofence);
+        props.route.params.setSelectedGeofence(geofence);
     }
 
-    onMapLayout = () => {
-        this.fitCoords();
+    const onMapLayout = () => {
+        fitCoords();
     }
 
-    fitCoords = () => {
-        if (this.map) {
-            if (this.props.geofenceType === 'polygon') {
-                if (this.props.geofencePoints && this.props.geofencePoints.length > 0) {
-                    this.map.fitToCoordinates(this.props.geofencePoints);
+    const fitCoords = () => {
+        if (map.current) {
+            if ((selectedGeofence?.type || 'polygon') === 'polygon') {
+                if ((selectedGeofence?.points || []).length > 0) {
+                    map.current.fitToCoordinates(selectedGeofence.points);
                 }
             } else {
-                if (this.props.geofenceRadius > 0) {
-                    console.log(this.circle)
-                    this.map.fitToCoordinates(this.get4PointsAroundCircunference(
-                        this.props.geofenceCenter.latitude,
-                        this.props.geofenceCenter.longitude,
-                        this.props.geofenceRadius / 1000
-                    ))
+                if ((selectedGeofence?.radius || 0) > 0) {
+                    map.current.fitToCoordinates(get4PointsAroundCircunference());
                 }
             }
         }
     }
 
-    handleZoomIn = async () => {
-        let curZoom = (await this.map.getCamera()).zoom
+    const handleZoomIn = async () => {
+        let curZoom = (await map.current.getCamera()).zoom
 
-        this.map.animateCamera({
+        map.current.animateCamera({
             zoom: curZoom + 1
         })
     }
 
-    handleZoomOut = async () => {
-        let curZoom = (await this.map.getCamera()).zoom
+    const handleZoomOut = async () => {
+        let curZoom = (await map.current.getCamera()).zoom
 
-        this.map.animateCamera({
+        map.current.animateCamera({
             zoom: curZoom - 1
         })
     }
 
-    get4PointsAroundCircunference = (latitude, longitude, radius) => {
+    const get4PointsAroundCircunference = () => {
+        let latitude = selectedGeofence.center.latitude;
+        let longitude = selectedGeofence.center.longitude;
+        let radius = selectedGeofence.radius / 1000;
+
         const earthRadius = 6378.1;
         const lat0 = latitude + (-radius / earthRadius) * (180 / Math.PI);
         const lat1 = latitude + (radius / earthRadius) * (180 / Math.PI);
@@ -158,241 +166,240 @@ class GeofenceDrawing extends Component {
         ]
     }
 
-    render() {
-        return (
-            <View style={styles.container}>
-                <Modal
-                    visible={this.state.showMaptypes}
-                    transparent={true}
-                    animationType={'slide'}
-                >
-                    <View style={styles.modalMaptypesContainer}>
-                        <View style={styles.modalMaptypeClose}>
-                            <TouchableOpacity
-                                activeOpacity={0.5}
-                                onPress={() => this.setState({ showMaptypes: false })}
-                            >
-                                <Text
-                                    style={{
-                                        color: 'white',
-                                        fontSize: 20
-                                    }}>
-                                    {
-                                        loc.closeLabel(this.props.lang)
-                                    }
-                                </Text>
-                            </TouchableOpacity>
+    return (
+        <View style={styles.container}>
+            <Modal
+                visible={showMapTypes}
+                transparent={true}
+                animationType={'slide'}
+            >
+                <View style={styles.modalMaptypesContainer}>
+                    <View style={styles.modalMaptypeClose}>
+                        <TouchableOpacity
+                            activeOpacity={0.5}
+                            onPress={() => setShowMapTypes(false)}
+                        >
+                            <Text
+                                style={{
+                                    color: 'white',
+                                    fontSize: 20
+                                }}>
+                                {
+                                    loc.closeLabel(props.lang)
+                                }
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.modalMaptypesContent}>
+                        <View style={styles.modalMapTypeTitle}>
+                            <Text>
+                                {loc.mapTypeLabel(props.lang)}
+                            </Text>
                         </View>
-                        <View style={styles.modalMaptypesContent}>
-                            <View style={styles.modalMapTypeTitle}>
-                                <Text>
-                                    {loc.mapTypeLabel(this.props.lang)}
-                                </Text>
+                        <View style={styles.modalMapTypesOptionsRow}>
+                            <View style={[styles.modalMaptypeButton, {
+                                backgroundColor: mapType === 'standard' ? '#81BEF7' : '#F2F2F2'
+                            }]}>
+                                <TouchableHighlight
+                                    underlayColor="#58ACFA"
+                                    onPress={() => setMapType('standard')}>
+                                    <Image
+                                        source={require('./../../assets/maptype_standard.jpg')}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            resizeMode: 'cover'
+                                        }} />
+
+                                </TouchableHighlight>
+                                <View>
+                                    <Text style={{ textAlign: 'center', marginTop: 10 }}>
+                                        {
+                                            loc.mapTypeStandardLabel(props.lang)
+                                        }
+                                    </Text>
+                                </View>
                             </View>
-                            <View style={styles.modalMapTypesOptionsRow}>
-                                <View style={[styles.modalMaptypeButton, {
-                                    backgroundColor: this.state.mapType === 'standard' ? '#81BEF7' : '#F2F2F2'
-                                }]}>
-                                    <TouchableHighlight
-                                        underlayColor="#58ACFA"
-                                        onPress={() => this.setState({ mapType: 'standard' })}>
-                                        <Image
-                                            source={require('./../../assets/maptype_standard.jpg')}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                resizeMode: 'cover'
-                                            }} />
 
-                                    </TouchableHighlight>
-                                    <View>
-                                        <Text style={{ textAlign: 'center', marginTop: 10 }}>
-                                            {
-                                                loc.mapTypeStandardLabel(this.props.lang)
-                                            }
-                                        </Text>
-                                    </View>
+                            <View style={[styles.modalMaptypeButton, {
+                                backgroundColor: mapType === 'satellite' ? '#81BEF7' : '#F2F2F2'
+                            }]}>
+                                <TouchableHighlight
+                                    underlayColor="#58ACFA"
+                                    onPress={() => setMapType('satellite')}>
+                                    <Image
+                                        source={require('./../../assets/maptype_satellite.jpg')}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            resizeMode: 'cover'
+                                        }} />
+
+                                </TouchableHighlight>
+                                <View>
+                                    <Text style={{ textAlign: 'center', marginTop: 10 }}>
+                                        {
+                                            loc.mapTypeSatelliteLabel(props.lang)
+                                        }
+                                    </Text>
                                 </View>
+                            </View>
 
-                                <View style={[styles.modalMaptypeButton, {
-                                    backgroundColor: this.state.mapType === 'satellite' ? '#81BEF7' : '#F2F2F2'
-                                }]}>
-                                    <TouchableHighlight
-                                        underlayColor="#58ACFA"
-                                        onPress={() => this.setState({ mapType: 'satellite' })}>
-                                        <Image
-                                            source={require('./../../assets/maptype_satellite.jpg')}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                resizeMode: 'cover'
-                                            }} />
+                            <View style={[styles.modalMaptypeButton, {
+                                backgroundColor: mapType === 'hybrid' ? '#81BEF7' : '#F2F2F2'
+                            }]}>
+                                <TouchableHighlight
+                                    underlayColor="#58ACFA"
+                                    onPress={() => setMapType('hybrid')}>
+                                    <Image
+                                        source={require('./../../assets/maptype_hybrid.jpg')}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            resizeMode: 'cover'
+                                        }} />
 
-                                    </TouchableHighlight>
-                                    <View>
-                                        <Text style={{ textAlign: 'center', marginTop: 10 }}>
-                                            {
-                                                loc.mapTypeSatelliteLabel(this.props.lang)
-                                            }
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View style={[styles.modalMaptypeButton, {
-                                    backgroundColor: this.state.mapType === 'hybrid' ? '#81BEF7' : '#F2F2F2'
-                                }]}>
-                                    <TouchableHighlight
-                                        underlayColor="#58ACFA"
-                                        onPress={() => this.setState({ mapType: 'hybrid' })}>
-                                        <Image
-                                            source={require('./../../assets/maptype_hybrid.jpg')}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                resizeMode: 'cover'
-                                            }} />
-
-                                    </TouchableHighlight>
-                                    <View>
-                                        <Text style={{ textAlign: 'center', marginTop: 10 }}>
-                                            {
-                                                loc.mapTypeHybridLabel(this.props.lang)
-                                            }
-                                        </Text>
-                                    </View>
+                                </TouchableHighlight>
+                                <View>
+                                    <Text style={{ textAlign: 'center', marginTop: 10 }}>
+                                        {
+                                            loc.mapTypeHybridLabel(props.lang)
+                                        }
+                                    </Text>
                                 </View>
                             </View>
                         </View>
                     </View>
-                </Modal>
-                <MapView
-                    style={styles.mapStyle}
-                    onPress={this.onMapPress}
-                    ref={(el) => { this.map = el }}
-                    provider='google'
-                    zoomTapEnabled={true}
-                    zoomEnabled={true}
-                    loadingEnabled={true}
-                    mapType={this.state.mapType}
-                    initialCamera={{
-                        center: {
-                            latitude: 10.4159096,
-                            longitude: -71.4390527
-                        },
-                        pitch: 0,
-                        heading: 0,
-                        altitude: 0,
-                        zoom: 13
-                    }}
-                    onLayout={() => this.onMapLayout()}
-                >
-                    {
-                        (this.props.geofenceType === 'polygon' && this.props.geofencePoints.length > 0) &&
-                        <Polygon
-                            coordinates={this.props.geofencePoints}
-                            fillColor={this.props.geofenceColor + '70'}
-                            strokeColor={this.props.geofenceColor}
+                </View>
+            </Modal>
+            <MapView
+                style={styles.mapStyle}
+                onPress={onMapPress}
+                ref={map}
+                provider='google'
+                zoomTapEnabled={true}
+                zoomEnabled={true}
+                loadingEnabled={true}
+                mapType={mapType}
+                initialCamera={{
+                    center: {
+                        latitude: 10.4159096,
+                        longitude: -71.4390527
+                    },
+                    pitch: 0,
+                    heading: 0,
+                    altitude: 0,
+                    zoom: 13
+                }}
+                onLayout={onMapLayout}
+            >
+                {
+                    ((selectedGeofence?.type || 'polygon') === 'polygon' && (selectedGeofence?.points || []).length > 0) &&
+                    <Polygon
+                        coordinates={selectedGeofence.points}
+                        fillColor={selectedGeofence.color + '70'}
+                        strokeColor={selectedGeofence.color}
 
+                    />
+                }
+
+                {
+                    ((selectedGeofence?.type || 'polygon') === 'circle' &&
+                        (selectedGeofence?.center?.latitude) &&
+                        (selectedGeofence?.radius || 0) > 0) &&
+                    <Circle
+                        ref={circle}
+                        center={selectedGeofence?.center}
+                        radius={selectedGeofence?.radius || 0}
+                        fillColor={(selectedGeofence?.color || '') + '70'}
+                        strokeColor={selectedGeofence?.color}
+                    />
+                }
+
+                {
+                    (selectedGeofence?.type || 'polygon') === 'polygon'
+                        ?
+                        (selectedGeofence?.points || []).map((point, index) => {
+                            return (
+                                <Marker
+                                    nativeID={'456'}
+                                    key={index}
+                                    coordinate={{
+                                        latitude: point.latitude,
+                                        longitude: point.longitude
+                                    }}
+                                    image={require('./../../assets/trans.png')}
+                                    anchor={{ x: 0.5, y: 0.5 }}
+                                />
+                            )
+                        })
+                        :
+                        selectedGeofence?.center?.latitude &&
+                        <Marker
+                            nativeID={'456'}
+                            coordinate={{
+                                latitude: selectedGeofence.center.latitude,
+                                longitude: selectedGeofence.center.longitude
+                            }}
+                            image={require('./../../assets/trans.png')}
+                            anchor={{ x: 0.5, y: 0.5 }}
                         />
-                    }
+                }
+            </MapView>
 
+            <TouchableHighlight
+                onPress={handleZoomIn}
+                underlayColor="#151E4499"
+                style={[
+                    styles.btnOnMap,
                     {
-                        (this.props.geofenceType === 'circle' &&
-                            this.props.geofenceCenter &&
-                            this.props.geofenceRadius > 0) &&
-                        <Circle
-                            ref={(el) => { this.circle = el }}
-                            center={this.props.geofenceCenter}
-                            radius={this.props.geofenceRadius}
-                            fillColor={this.props.geofenceColor + '70'}
-                            strokeColor={this.props.geofenceColor}
-                        />
+                        right: 20,
+                        bottom: 170
                     }
+                ]}>
+                <Feather name="zoom-in" size={20} color="#fff"></Feather>
+            </TouchableHighlight>
 
+            <TouchableHighlight
+                onPress={handleZoomOut}
+                underlayColor="#151E4499"
+                style={[
+                    styles.btnOnMap,
                     {
-                        this.props.geofenceType === 'polygon' ?
-                            this.props.geofencePoints.map((point, index) => {
-                                return (
-                                    <Marker
-                                        nativeID={'456'}
-                                        key={index}
-                                        coordinate={{
-                                            latitude: point.latitude,
-                                            longitude: point.longitude
-                                        }}
-                                        image={require('./../../assets/trans.png')}
-                                        anchor={{ x: 0.5, y: 0.5 }}
-                                    />
-                                )
-                            })
-                            :
-                            this.props.geofenceCenter &&
-                            <Marker
-                                nativeID={'456'}
-                                coordinate={{
-                                    latitude: this.props.geofenceCenter.latitude,
-                                    longitude: this.props.geofenceCenter.longitude
-                                }}
-                                image={require('./../../assets/trans.png')}
-                                anchor={{ x: 0.5, y: 0.5 }}
-                            />
+                        right: 20,
+                        bottom: 120
                     }
-                </MapView>
+                ]}>
+                <Feather name="zoom-out" size={20} color="#fff"></Feather>
+            </TouchableHighlight>
 
-                <TouchableHighlight
-                    onPress={this.handleZoomIn}
-                    underlayColor="#151E4499"
-                    style={[
-                        styles.btnOnMap,
-                        {
-                            right: 20,
-                            bottom: 170
-                        }
-                    ]}>
-                    <Feather name="zoom-in" size={20} color="#fff"></Feather>
-                </TouchableHighlight>
+            <TouchableHighlight
+                onPress={() => setShowMapTypes(true)}
+                underlayColor="#151E4499"
+                style={[
+                    styles.btnOnMap,
+                    {
+                        right: 20,
+                        bottom: 70
+                    }
+                ]}>
+                <MaterialCommunityIcons name="map" size={20} color="#fff"></MaterialCommunityIcons>
+            </TouchableHighlight>
 
-                <TouchableHighlight
-                    onPress={this.handleZoomOut}
-                    underlayColor="#151E4499"
-                    style={[
-                        styles.btnOnMap,
-                        {
-                            right: 20,
-                            bottom: 120
-                        }
-                    ]}>
-                    <Feather name="zoom-out" size={20} color="#fff"></Feather>
-                </TouchableHighlight>
-
-                <TouchableHighlight
-                    onPress={() => this.setState({ showMaptypes: true })}
-                    underlayColor="#151E4499"
-                    style={[
-                        styles.btnOnMap,
-                        {
-                            right: 20,
-                            bottom: 70
-                        }
-                    ]}>
-                    <MaterialCommunityIcons name="map" size={20} color="#fff"></MaterialCommunityIcons>
-                </TouchableHighlight>
-
-                <TouchableHighlight
-                    onPress={this.fitCoords}
-                    underlayColor="#151E4499"
-                    style={[
-                        styles.btnOnMap,
-                        {
-                            right: 20,
-                            bottom: 20
-                        }
-                    ]}>
-                    <MaterialCommunityIcons name="fit-to-page-outline" size={20} color="#fff"></MaterialCommunityIcons>
-                </TouchableHighlight>
-            </View>
-        )
-    }
+            <TouchableHighlight
+                onPress={fitCoords}
+                underlayColor="#151E4499"
+                style={[
+                    styles.btnOnMap,
+                    {
+                        right: 20,
+                        bottom: 20
+                    }
+                ]}>
+                <MaterialCommunityIcons name="fit-to-page-outline" size={20} color="#fff"></MaterialCommunityIcons>
+            </TouchableHighlight>
+        </View>
+    )
 }
 
 const styles = StyleSheet.create({
@@ -474,19 +481,8 @@ const mapStateToProps = state => {
     return {
         lang: state.appReducer.lang,
         serverUrl: state.appReducer.serverUrl,
-        user: state.userReducer.user,
-        geofenceType: state.geofenceReducer.geofenceType,
-        geofenceColor: state.geofenceReducer.geofenceColor,
-        geofencePoints: state.geofenceReducer.geofencePoints,
-        geofenceCenter: state.geofenceReducer.geofenceCenter,
-        geofenceRadius: state.geofenceReducer.geofenceRadius
+        user: state.userReducer.user
     }
 }
 
-export default connect(mapStateToProps, {
-    setIsLoading,
-    setGeofencePoints,
-    setGeofenceCenter,
-    setGeofenceRadius,
-    handleMapReady
-})(GeofenceDrawing)
+export default connect(mapStateToProps, null)(GeofenceDrawing)

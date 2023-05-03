@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "VillaTracking",
-    "slug": "VillaTrackingClient",
+    "name": "Villa Tracking",
+    "slug": "VillaTracking",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#CACACA"
     },
     "updates": {
       "fallbackToCacheTimeout": 0
@@ -23,15 +23,24 @@
     },
     "android": {
       "package": "com.villatracking.client",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#CACACA"
+      },
       "versionCode": 1,
       "config": {
-        "googleMaps":{
+        "googleMaps": {
           "apiKey": "AIzaSyDJrTt5rprVW9n16JNgc8NOjKzSt6WEqqg"
         }
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3b4a692b-1221-48d9-9043-914a0a9c947d"
+      }
     }
   }
 }

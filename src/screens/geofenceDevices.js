@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
-import { connect } from "react-redux";
-import Locale from '../locale';
-import { View, StyleSheet, TouchableOpacity, FlatList, Modal, ActivityIndicator, TextInput, Text, Alert } from "react-native";
-import { HeaderButtons, HeaderButton, Item } from 'react-navigation-header-buttons';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity, FlatList, Modal, ActivityIndicator } from 'react-native';
 import { FontAwesome, MaterialCommunityIcons, FontAwesome5 } from 'react-native-vector-icons';
+import { connect } from 'react-redux';
+import Locale from './../locale.ts';
+import { HeaderButtons, HeaderButton, Item } from 'react-navigation-header-buttons';
 import axios from 'axios';
-import moment from 'moment'
+import moment from 'moment';
+import 'moment/locale/es';
 import { CheckBox } from "react-native-elements";
 
 const MaterialHeaderButton = (props) => (
@@ -18,56 +19,81 @@ const MaterialHeaderButtons = (props) => {
 
 const loc = new Locale();
 
-const GroupAddDevices = (props) => {
+const GeofenceDevices = (props) => {
     const [isLoading, setIsLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
-    const [selectedGroup, setSelectedGroup] = useState(props.route.params.group);
-    const [devices, setDevices] = useState([]);
-    const [devicesId, setDevicesId] = useState((props.route.params.group?.devices || []).map(device => device.id));
+    const [selectedGeofence, setSelectedGeofence] = useState(props.route.params.geofence);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [devicesList, setDevicesList] = useState([]);
     const [refreshingList, setRefreshingList] = useState(true);
+    const [deleteMode, setDeleteMode] = useState(false);
+    const [refresh, setRefresh] = useState(false);
+    const [devicesId, setDevicesId] = useState([]);
 
     useEffect(() => {
         props.navigation.setOptions({
-            headerRight: () => (
-                <MaterialHeaderButtons>
-                    <Item
-                        title='save'
-                        iconName='check'
-                        disabled={devicesId.length === selectedGroup.devices.length}
-                        color={devicesId.length === selectedGroup.devices.length ? 'rgba(0,0,0,0.3)' : 'black'}
-                        onPress={addGroupDevicesPrompt}
-                    />
-                    <Item title="menu" iconName="menu" onPress={() => { props.navigation.toggleDrawer() }} />
-                </MaterialHeaderButtons>
-            )
-        })
+            headerRight: () => {
+                return deleteMode
+                    ?
+                    <MaterialHeaderButtons>
+                        <Item title="return" iconName="keyboard-return" onPress={() => { setDeleteMode(false); setDevicesId([]) }} />
+                        <Item
+                            title='ok'
+                            iconName='check'
+                            onPress={showDeleteFromGeofencePrompt}
+                            disabled={devicesId.length === (selectedGeofence?.devices_count || 0)}
+                            color={(devicesId.length === (selectedGeofence?.devices_count || 0)) ? 'rgba(0,0,0,0.3)' : 'black'}
+                        />
+                        <Item title="menu" iconName="menu" onPress={() => { props.navigation.toggleDrawer() }} />
+                    </MaterialHeaderButtons>
+                    :
+                    <MaterialHeaderButtons>
+                        <Item
+                            title='delete'
+                            iconName='minus'
+                            onPress={() => {
+                                setDevicesId((selectedGeofence?.devices || []).map(device => device.id))
+                                setDeleteMode(true)
+                            }}
+                        />
+                        <Item title="add" iconName="plus" onPress={() => {
+                            props.navigation.navigate('GeofenceAddDevices', { geofence: selectedGeofence, updateGeofence: updateGeofence })
+                        }} />
+                        <Item title="menu" iconName="menu" onPress={() => { props.navigation.toggleDrawer() }} />
+                    </MaterialHeaderButtons>
+
+            }
+        });
 
         props.navigation.setOptions({
-            headerTitle: loc.associateToGroupTitle(props.lang)
+            headerTitle: selectedGeofence.name + ' (' + selectedGeofence.devices_count + ')'
         })
+
+        moment.locale(props.lang);
     })
 
     useEffect(() => {
         refreshDevicesList();
     }, []);
 
-    const handleCheckbox = (deviceId) => {
-        if (devicesId.includes(deviceId)) {
-            setDevicesId(devicesId.filter(id => id !== deviceId));
-        } else {
-            setDevicesId(devicesId => {
-                return [
-                    ...devicesId,
-                    deviceId
-                ]
+    useEffect(() => {
+        if ((selectedGeofence?.devices || []).length > 0){
+            setSelectedGeofence(selectedGeofence => {
+                return {
+                    ...selectedGeofence,
+                    devices: (selectedGeofence?.devices || []).map(device => {
+                        device.location = props.devicesLocations.find(l => l.imei === device.imei) || device?.location
+                        return device;
+                    })
+                }
             })
         }
-    }
+    }, [props.devicesLocations])
 
-    const addGroupDevicesPrompt = () => {
+    const showDeleteFromGeofencePrompt = () => {
         Alert.alert(
-            loc.groupAddDevicesPromptTitle(props.lang),
-            loc.groupAddDevicesPromptQuestion(props.lang) + ' ' + selectedGroup?.name + '?',
+            loc.geofenceDeviceDeletePromptTitle(props.lang),
+            loc.geofenceDeviceDeletePromptQuestion(props.lang) + ' ' + selectedGeofence?.name + '?',
             [
                 {
                     text: loc.cancelButtonLabel(props.lang),
@@ -75,7 +101,7 @@ const GroupAddDevices = (props) => {
                 },
                 {
                     text: loc.acceptButtonLabel(props.lang),
-                    onPress: addGroupDevices
+                    onPress: deleteGeofenceDevices
                 }
             ],
             {
@@ -84,11 +110,11 @@ const GroupAddDevices = (props) => {
         )
     }
 
-    const addGroupDevices = () => {
+    const deleteGeofenceDevices = () => {
         setIsLoading(true);
 
-        axios.post(props.serverUrl + '/saveGroupDevices', {
-            id: selectedGroup.id,
+        axios.post(props.serverUrl + '/saveGeofenceDevices', {
+            id: selectedGeofence.id,
             user_id: props.user.id,
             devices_id: devicesId
         },
@@ -98,15 +124,16 @@ const GroupAddDevices = (props) => {
                 }
             }).then(res => {
                 if (res.data.result === 'OK') {
-                    props.route.params.updateGroup(res.data.groups, res.data.group);
-                    setSelectedGroup(res.data.group);
-                    setDevices(res.data.devices);
+                    props.route.params.updateGeofences(res.data.geofences);
+                    setSelectedGeofence(res.data.geofence);
                 }
 
-                setDevicesId((res.data.group?.devices || []).map(d => d.id));
+                setDevicesId([]);
+                setDeleteMode(false);
                 setIsLoading(false);
             }).catch(e => {
                 console.log(e);
+                setDeleteMode(false);
                 setIsLoading(false);
             });
     }
@@ -146,23 +173,43 @@ const GroupAddDevices = (props) => {
                         </Text>
                     </View>
                 </View>
-                <CheckBox
-                    checkedIcon={<MaterialCommunityIcons name='checkbox-marked-outline' size={20} />}
-                    uncheckedIcon={<MaterialCommunityIcons name='checkbox-blank-outline' size={20} />}
-                    checked={devicesId.includes(item.id)}
-                    onPress={() => { handleCheckbox(item.id) }}
-                    containerStyle={{ padding: 0 }}
-                />
+                {
+                    deleteMode &&
+                    <CheckBox
+                        checkedIcon={<MaterialCommunityIcons name='checkbox-marked-outline' size={20} />}
+                        uncheckedIcon={<MaterialCommunityIcons name='checkbox-blank-outline' size={20} />}
+                        checked={!devicesId.includes(item.id)}
+                        onPress={() => { handleCheckbox(item.id) }}
+                        containerStyle={{ padding: 0 }}
+                    />
+                }
             </View>
         )
     }
 
+    const handleCheckbox = (deviceId) => {
+        if (devicesId.includes(deviceId)) {
+            setDevicesId(devicesId.filter(id => id !== deviceId));
+        } else {
+            setDevicesId(devicesId => {
+                return [
+                    ...devicesId,
+                    deviceId
+                ]
+            })
+        }
+    }
+
+    const updateGeofence = (_geofences, _geofence) => {
+        props.route.params.updateGeofences(_geofences);
+        setSelectedGeofence(_geofence);
+    }
+
     const refreshDevicesList = () => {
         setRefreshingList(true);
-
-        axios.post(props.serverUrl + '/getNoGroupDevices', {
-            user_id: props.user.id,
-            devices_id: (selectedGroup?.devices || []).map(device => device.id)
+        
+        axios.post(props.serverUrl + '/getGeofencesById', {
+            id: (selectedGeofence?.id || 0)
         },
             {
                 headers: {
@@ -170,8 +217,8 @@ const GroupAddDevices = (props) => {
                 }
             }
         ).then(res => {
-            if (res.data.result === 'OK') {
-                setDevices(res.data.devices)
+            if (res.data.result === 'OK') {                
+                setSelectedGeofence(res.data.geofence)
             }
             setRefreshingList(false);
         }).catch(e => {
@@ -200,12 +247,6 @@ const GroupAddDevices = (props) => {
                 </View>
             </Modal>
 
-            <View style={{ alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: 3, marginBottom: 5, borderRadius: 10 }}>
-                <Text style={{ fontSize: 16 }}>
-                    {selectedGroup?.name}
-                </Text>
-            </View>
-
             <View style={styles.searchContainer}>
                 <FontAwesome name="search" size={20} color="#151E44" />
                 <TextInput
@@ -224,7 +265,7 @@ const GroupAddDevices = (props) => {
             <FlatList
                 extraData={true}
                 data={
-                    devices.filter(device => {
+                    (selectedGeofence?.devices || []).filter(device => {
                         let text = searchText.toLowerCase();
 
                         if (text.trim() === '') {
@@ -276,6 +317,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 5
     },
+    addNewDeviceBtn: {
+        width: 35,
+        height: 35,
+        borderRadius: 25,
+        backgroundColor: '#151E44',
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 5,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.3)'
+    },
     deviceItemContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -284,8 +336,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         elevation: 1,
         borderColor: 'rgba(0,0,0,0.2)',
-        borderWidth: 1,
-        justifyContent: 'space-between'
+        borderWidth: 1
     },
     deviceReportStatusIndicator: {
         width: 10,
@@ -324,14 +375,45 @@ const styles = StyleSheet.create({
         fontStyle: 'normal',
         paddingRight: 10
     },
+    modalContainer: {
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flex: 1
+    },
+    modalContent: {
+        backgroundColor: 'white',
+        width: '90%',
+        maxWidth: 380,
+        padding: 10,
+        borderRadius: 10
+    },
+    modalButtonContainer: {
+        backgroundColor: 'rgba(0,0,0,0.2)',
+        borderRadius: 5,
+        width: '100%',
+        marginBottom: 10
+    },
+    modalButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10
+    },
+    modalButtonText: {
+        fontSize: 18,
+        marginLeft: 15,
+        flex: 1,
+        fontWeight: 'bold'
+    }
 })
 
-const mapStateToProps = state => {
+const mapStateToProps = (state) => {
     return {
         lang: state.appReducer.lang,
         serverUrl: state.appReducer.serverUrl,
-        user: state.userReducer.user
+        user: state.userReducer.user,
+        devicesLocations: state.devicesReducer.devicesLocations,
     }
 }
 
-export default connect(mapStateToProps, null)(GroupAddDevices)
+export default connect(mapStateToProps, null)(GeofenceDevices)

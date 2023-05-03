@@ -1,12 +1,6 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { connect } from "react-redux";
 import Locale from './../locale';
-import {
-    setIsLoading,
-    setDevices,
-    setDevicesModels,
-    setGroups
-} from "./../actions";
 import { HeaderButtons, HeaderButton, Item } from 'react-navigation-header-buttons';
 import axios from 'axios';
 import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -22,178 +16,140 @@ const MaterialHeaderButtons = (props) => {
     return <HeaderButtons HeaderButtonComponent={MaterialHeaderButton} {...props} />;
 };
 
-class GroupMaintainer extends Component {
-    constructor(props) {
-        super(props)
+const GroupMaintainer = (props) => {
+    const [isLoading, setIsLoading] = useState(false);
+    const [selectedGroup, setSelectedGroup] = useState(props.route.params.group);
+    const [groups, setGroups] = useState([]);
 
-        this.state = {
-            groupId: this.props.route.params.groupId,
-            name: '',
-            isActive: true
-        };
-
-        this.props.navigation.setOptions({
+    useEffect(() => {
+        props.navigation.setOptions({
             headerRight: () => (
                 <MaterialHeaderButtons>
-                    <Item title="save" iconName="content-save-edit" onPress={() => this.saveGroup()} />
-                    <Item title="menu" iconName="menu" onPress={() => this.props.navigation.toggleDrawer()} />
+                    <Item title="save" iconName="content-save-edit" onPress={() => { saveGroup() }} />
+                    <Item title="menu" iconName="menu" onPress={() => props.navigation.toggleDrawer()} />
                 </MaterialHeaderButtons>
             )
         })
-    }
 
-    componentDidUpdate() {
-        this.props.navigation.setOptions({
-            headerTitle: this.props.route.params.type === 'add' ? loc.addNewGroupTitle(this.props.lang) : loc.editGroupTitle(this.props.lang)
+        props.navigation.setOptions({
+            headerTitle: props.route.params.type === 'add' ? loc.addNewGroupTitle(props.lang) : loc.editGroupTitle(props.lang)
         })
-    }
+    });    
 
-    componentDidMount() {
-        this.props.navigation.setOptions({
-            headerTitle: this.props.route.params.type === 'add' ? loc.addNewGroupTitle(this.props.lang) : loc.editGroupTitle(this.props.lang)
-        })
+    const saveGroup = () => {
 
-        console.log(this.props.route.params);
-
-        if (this.props.route.params.groupId > 0) {
-
-            this.props.groups.map(group => {
-                if (group.id === this.props.route.params.groupId) {
-                    this.setState({
-                        groupId: group.id,
-                        name: group.name,
-                        isActive: group.status === 1
-                    })
-                }
-                return group;
-            })
-        } else {
-            this.setState({
-                groupId: this.props.route.params.groupId,
-                name: '',
-                isActive: true
-            })
-        }
-    }
-
-    saveGroup = () => {
-        let {
-            groupId,
-            name,
-            isActive
-        } = this.state;
-
-        if (name.trim() === '') {
+        if ((selectedGroup?.name || '').trim() === '') {
             Alert.alert(
                 'VillaTracking',
-                loc.groupNameEmptyMessage(this.props.lang)
+                loc.groupNameEmptyMessage(props.lang)
             );
             return;
         }
 
-        this.props.setIsLoading(true);
+        setIsLoading(true);
 
-        axios.post(this.props.serverUrl + '/saveGroup', {
-            groupId: groupId,
-            name: name,
-            isActive: isActive,
-            userId: this.props.user.id
+        axios.post(props.serverUrl + '/saveGroup', {
+            id: selectedGroup.id,
+            name: selectedGroup.name,
+            status: selectedGroup.status,
+            user_id: props.user.id
         },
             {
                 headers: {
                     "Content-Type": "application/json"
                 }
-            })
-            .then(res => {
-                console.log(res.data.result);
+            }).then(res => {
                 switch (res.data.result) {
                     case 'SAVED':
-                        this.props.setIsLoading(false);
-                        this.props.setDevices(res.data.devices);
-                        this.props.setDevicesModels(res.data.deviceModels);
-                        this.props.setGroups(res.data.groups);
-
-                        Alert.alert('VillaTracking', loc.groupSavedSuccessfullyMsg(this.props.lang));
-                        this.props.navigation.goBack();
+                        Alert.alert('VillaTracking', loc.groupSavedSuccessfullyMsg(props.lang));
+                        props.route.params.onGoBack(res.data.groups);
+                        props.navigation.goBack();
                         break;
                     case 'UPDATED':
-                        this.props.setIsLoading(false);
-                        this.props.setDevices(res.data.devices);
-                        this.props.setDevicesModels(res.data.deviceModels);
-                        this.props.setGroups(res.data.groups);
-
-                        Alert.alert('VillaTracking', loc.groupUpdatedSuccessfullyMsg(this.props.lang));
-                        this.props.navigation.goBack();
+                        Alert.alert('VillaTracking', loc.groupUpdatedSuccessfullyMsg(props.lang));
+                        props.route.params.onGoBack(res.data.groups);
+                        props.navigation.goBack();
                         break;
                     case 'DUPLICATE':
-                        this.props.setIsLoading(false);
-                        Alert.alert('VillaTracking', loc.groupDuplicatedMessage(this.props.lang));
+                        Alert.alert('VillaTracking', loc.groupDuplicatedMessage(props.lang));
                         break;
                     default:
-                        this.props.setIsLoading(false);
-                        Alert.alert('VillaTracking', loc.erroOccurred(this.props.lang));
+                        Alert.alert('VillaTracking', loc.erroOccurred(props.lang));
                         console.log(res.data)
                         break;
                 }
-            })
-            .catch(e => {
-                this.props.setIsLoading(false);
-                Alert.alert('VillaTracking', loc.erroOccurred(this.props.lang));
+
+                setIsLoading(false);
+            }).catch(e => {
+                setIsLoading(false);
+                Alert.alert('VillaTracking', loc.erroOccurred(props.lang));
                 console.log(e)
             })
     }
 
-    render() {
-        return (
-            <View style={styles.container}>
-                <Modal
-                    transparent={true}
-                    visible={this.props.isLoading}
-                    animationType={'slide'}
-                    onRequestClose={() => this.props.setIsLoading(false)}
-                >
+    return (
+        <View style={styles.container}>
+            <Modal
+                transparent={true}
+                visible={isLoading}
+                animationType={'slide'}
+                onRequestClose={() => {setIsLoading(false)}}
+            >
+                <View style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    zIndex: 5
+                }}>
+                    <ActivityIndicator size='large' color='white' />
+                </View>
+            </Modal>
+
+            <ScrollView>
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>{loc.nameField(props.lang)} *</Text>
+                    <TextInput style={styles.fieldInput} maxLength={15}
+                        onChangeText={(name) => {
+                            setSelectedGroup(selectedGroup => {
+                                return {
+                                    ...selectedGroup,
+                                    name
+                                }
+                            })
+                        }}
+                        value={selectedGroup?.name || ''} />
+                </View>
+
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>{loc.statusField(props.lang)} *</Text>
                     <View style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        zIndex: 5
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: 8
                     }}>
-                        <ActivityIndicator size='large' color='white' />
+                        <Text>{loc.enabledLabel(props.lang)}</Text>
+                        <Switch
+                            trackColor={{ false: "#767577", true: "#81b0ff" }}
+                            thumbColor={(selectedGroup?.status || 0) === 1 ? "green" : "#f4f3f4"}
+                            ios_backgroundColor="#3e3e3e"
+                            onValueChange={() => {
+                                setSelectedGroup(() => {
+                                    return {
+                                        ...selectedGroup,
+                                        status: (selectedGroup?.status || 0) === 0 ? 1 : 0
+                                    }
+                                })
+                            }}
+                            value={(selectedGroup?.status || 0) === 1}
+                        />
                     </View>
-                </Modal>
-
-                <ScrollView>
-                    <View style={styles.fieldContainer}>
-                        <Text style={styles.fieldLabel}>{loc.nameField(this.props.lang)} *</Text>
-                        <TextInput style={styles.fieldInput} maxLength={15}
-                            onChangeText={(name) => this.setState({ name })}
-                            value={this.state.name} />
-                    </View>
-
-                    <View style={styles.fieldContainer}>
-                        <Text style={styles.fieldLabel}>{loc.statusField(this.props.lang)} *</Text>
-                        <View style={{
-                            flexDirection: 'row',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: 8
-                        }}>
-                            <Text>{loc.enabledLabel(this.props.lang)}</Text>
-                            <Switch
-                                trackColor={{ false: "#767577", true: "#81b0ff" }}
-                                thumbColor={this.state.isActive ? "green" : "#f4f3f4"}
-                                ios_backgroundColor="#3e3e3e"
-                                onValueChange={() => this.setState({ isActive: !this.state.isActive })}
-                                value={this.state.isActive}
-                            />
-                        </View>
-                    </View>
-                </ScrollView>
-            </View>
-        )
-    }
+                </View>
+            </ScrollView>
+        </View>
+    )
 }
 
 const styles = StyleSheet.create({
@@ -224,16 +180,9 @@ const styles = StyleSheet.create({
 const mapStateToProps = (state) => {
     return {
         lang: state.appReducer.lang,
-        isLoading: state.appReducer.isLoading,
         serverUrl: state.appReducer.serverUrl,
         user: state.userReducer.user,
-        groups: state.groupReducer.groups
     }
 }
 
-export default connect(mapStateToProps, {
-    setIsLoading,
-    setDevices,
-    setDevicesModels,
-    setGroups
-})(GroupMaintainer)
+export default connect(mapStateToProps, null)(GroupMaintainer)

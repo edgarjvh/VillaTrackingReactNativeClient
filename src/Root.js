@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { createMaterialBottomTabNavigator } from "@react-navigation/material-bottom-tabs";
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import AsyncStorage from "@react-native-community/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FontAwesome, MaterialCommunityIcons, FontAwesome5 } from 'react-native-vector-icons';
 
 import Login from './screens/login';
@@ -18,12 +18,15 @@ import DeviceMaintainer from './screens/deviceMaintainer';
 import Groups from './screens/groups';
 import GroupMaintainer from './screens/groupMaintainer';
 import GroupAddDevices from './screens/groupAddDevices';
+import GroupDevices from './screens/groupDevices';
 import History from './screens/history';
 import HistoryDetails from "./screens/historyDetails";
+import SendCommand from './screens/sendCommand';
 import Geofences from './screens/geofences';
 import GeofenceMaintainer from './screens/geofenceMantainer';
 import GeofenceDrawing from './screens/geofenceDrawing';
 import GeofenceAddDevices from './screens/geofenceAddDevices';
+import GeofenceDevices from './screens/geofenceDevices';
 import Alerts from './screens/alerts';
 import Tools from './screens/tools';
 import Settings from './screens/settings';
@@ -32,7 +35,6 @@ import Profile from './screens/profile';
 import Locale from "./locale";
 
 import { setUser } from "./actions";
-import historyDetails from './screens/historyDetails';
 
 const loc = new Locale();
 const Stack = new createStackNavigator();
@@ -134,6 +136,14 @@ class Root extends Component {
             />
 
             <Stack.Screen
+                name="GroupDevices"
+                component={GroupDevices}
+                options={{
+                    headerShown: true
+                }}
+            />
+
+            <Stack.Screen
                 name="History"
                 component={History}
                 options={{
@@ -144,9 +154,18 @@ class Root extends Component {
 
             <Stack.Screen
                 name="HistoryDetails"
-                component={historyDetails}
+                component={HistoryDetails}
                 options={{
                     title: loc.historyDetailsTitle(this.props.lang),
+                    headerShown: true
+                }}
+            />
+
+            <Stack.Screen
+                name="SendCommand"
+                component={SendCommand}
+                options={{
+                    title: loc.sendCommandTitle(this.props.lang),
                     headerShown: true
                 }}
             />
@@ -180,6 +199,14 @@ class Root extends Component {
             <Stack.Screen
                 name="GeofenceAddDevices"
                 component={GeofenceAddDevices}
+                options={{
+                    headerShown: true
+                }}
+            />
+
+            <Stack.Screen
+                name="GeofenceDevices"
+                component={GeofenceDevices}
                 options={{
                     headerShown: true
                 }}

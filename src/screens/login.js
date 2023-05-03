@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View, ImageBackground, Image, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { styles } from './../styles/loginStyles';
@@ -6,10 +6,10 @@ import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Locale from './../locale';
 import axios from 'axios';
 import { connect } from "react-redux";
-import { setUser, setIsLoading, setLanguageEs, setLanguageEn } from "./../actions";
+import { setUser, setLanguageEs, setLanguageEn } from "./../actions";
 import { HeaderButtons, HeaderButton, Item, } from 'react-navigation-header-buttons';
-import AsyncStorage from "@react-native-community/async-storage";
-import * as Permissions from 'expo-permissions'
+import AsyncStorage from "@react-native-async-storage/async-storage";
+// import { Camera } from 'expo-camera';
 
 const MaterialHeaderButton = (props) => (
     <HeaderButton IconComponent={MaterialIcon} iconSize={23} color="black" {...props} />
@@ -21,18 +21,14 @@ const MaterialHeaderButtons = (props) => {
 
 const loc = new Locale();
 
-class Login extends Component {
+const Login = (props) => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [formMsg, setFormMsg] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    constructor(props) {
-        super(props);       
-
-        this.state = {
-            email: '',
-            password: '',            
-            formMsg: ''
-        }
-
-        this.props.navigation.setOptions({
+    useEffect(() => {
+        props.navigation.setOptions({
             headerRight: () => (
                 <MaterialHeaderButtons>
                     <TouchableOpacity
@@ -45,7 +41,7 @@ class Login extends Component {
                             borderColor: '#D8D8D8',
                             borderRadius: 15
                         }}
-                        onPress={() => this.props.setLanguageEs()}
+                        // onPress={() => { props.setLanguageEs() }}
                     >
                         <Image
                             source={require('./../../assets/es-flag.png')}
@@ -67,7 +63,7 @@ class Login extends Component {
                             marginLeft: 20,
                             marginRight: 10
                         }}
-                        onPress={() => this.props.setLanguageEn()}
+                        onPress={() => { props.setLanguageEn() }}
                     >
                         <Image
                             source={require('./../../assets/us-flag.png')}
@@ -76,67 +72,55 @@ class Login extends Component {
                                 height: '100%'
                             }} />
                     </TouchableOpacity>
-
-
                 </MaterialHeaderButtons>
             )
         })
+    })
+
+    useEffect(() => {
+        _getStoragePermissions();
+    }, []);
+
+    const _getStoragePermissions = async () => {
+        // const { status } = await Camera.requestCameraPermissionsAsync();
+        // if (status !== 'granted') {
+        //     // display an error
+        // }
     }
 
-    componentDidMount() {
-        this._getStoragePermissions();
-    } 
-
-    _getStoragePermissions = async () => {
-        const { status } = await Permissions.askAsync(Permissions.CAMERA_ROLL)
-        if (status !== 'granted') {
-            // display an error
-        }
+    const goToRegistration = () => {
+        props.navigation.navigate('Register');
     }
 
-    goToRegistration = () => {
-        this.props.navigation.navigate('Register');
+    const goToPasswordRecovery = () => {
+        props.navigation.navigate('PasswordRecovery');
     }
 
-    goToPasswordRecovery = () => {
-        this.props.navigation.navigate('PasswordRecovery');
-    }
-
-    validateEmail = (email) => {
+    const validateEmail = (email) => {
         return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email.trim());
     }
 
-    submitLogin = async () => {
-        await this.setState({
-            formMsg: ''
-        });
-
-        let { email, password } = this.state
+    const submitLogin = async () => {
+        await setFormMsg('');
 
         if (email.trim() === '') {
-            this.setState({
-                formMsg: loc.emptyEmailMsg(this.props.lang)
-            });
+            setFormMsg(loc.emptyEmailMsg(props.lang));
             return;
         }
 
         if (password.trim() === '') {
-            this.setState({
-                formMsg: loc.emptyPasswordMsg(this.props.lang)
-            });
+            setFormMsg(loc.emptyPasswordMsg(props.lang));
             return;
         }
 
-        if (!this.validateEmail(email)) {
-            this.setState({
-                formMsg: loc.invalidEmailMsg(this.props.lang)
-            });
+        if (!validateEmail(email)) {
+            setFormMsg(loc.invalidEmailMsg(props.lang));
             return;
         }
 
-        this.props.setIsLoading(true);
+        setIsLoading(true);
 
-        axios.post(this.props.serverUrl + '/validateLogin', {
+        axios.post(props.serverUrl + '/validateLogin', {
             email: email,
             password: password
         },
@@ -145,170 +129,144 @@ class Login extends Component {
                     "Content-Type": "application/json"
                 }
             }
-        )
-            .then(async (res) => {
-                let { result, user } = res.data;                
+        ).then(async (res) => {
+            let { result, user } = res.data;
 
-                if (result === 'OK') {
-                    await this.props.setIsLoading(false);
-                    
-                    await AsyncStorage.setItem('@user', JSON.stringify(user));
+            if (result === 'OK') {
+                await setIsLoading(false);
+                await AsyncStorage.setItem('@user', JSON.stringify(user));
+                props.setUser(user)
+                return;
+            }
 
-                    this.props.setUser(user)
-                    return;
-                }
+            if (result === 'INVALID') {
+                await setIsLoading(false);
+                setFormMsg(loc.invalidCredentials(props.lang));
+                return;
+            }
 
-                if (result === 'INVALID') {
-                    await this.props.setIsLoading(false);
+            if (result === 'ERROR') {
+                await setIsLoading(false);
+                setFormMsg(loc.erroOccurred(props.lang));
+                return;
+            }
 
-                    this.setState({
-                        formMsg: loc.invalidCredentials(this.props.lang)
-                    });
-                    return;
-                }
-
-                if (result === 'ERROR') {
-                    await this.props.setIsLoading(false);
-
-                    this.setState({
-                        formMsg: loc.erroOccurred(this.props.lang)
-                    });
-                    return;
-                }
-
-                if (result === 'VALIDATE') {
-                    await this.props.setIsLoading(false);
-                    
-                    this.props.navigation.navigate('RegisterValidation', { email: email });
-                    return;
-                }
-            })
-            .catch(e => {
-                this.props.setIsLoading(false);
-
-                this.setState({                    
-                    formMsg: loc.erroOccurred(this.props.lang)
-                });
-            });
+            if (result === 'VALIDATE') {
+                await setIsLoading(false);
+                props.navigation.navigate('RegisterValidation', { email: email });
+                return;
+            }
+        }).catch(e => {
+            setIsLoading(false);
+            setFormMsg(loc.erroOccurred(props.lang));
+            console.log(e)
+        });
     }
 
-    render() {
-        return (
-            <ImageBackground
-                style={[styles.bg, {
-                    position: 'relative'
-                }]}
-                source={require('./../../assets/bg-500.jpg')}>
-
-                {
-                    this.props.isLoading &&
-                    <View style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        zIndex: 5
-                    }}>
-                        <ActivityIndicator size='large' color='white' />
-                    </View>
-                }
-
-                <StatusBar style="dark" />
-                <View style={styles.logoView}>
-                    <Image source={require('./../../assets/logo2.png')} style={styles.logo} />
+    return (
+        <ImageBackground
+            style={[styles.bg, {
+                position: 'relative'
+            }]}
+            source={require('./../../assets/bg-500.jpg')}>
+            {
+                isLoading &&
+                <View style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    zIndex: 5
+                }}>
+                    <ActivityIndicator size='large' color='white' />
                 </View>
+            }
 
-                <View style={styles.body}>
+            <StatusBar style="dark" />
+            <View style={styles.logoView}>
+                <Image source={require('./../../assets/logo2.png')} style={styles.logo} />
+            </View>
 
-                    <ScrollView style={{
-                        width: '100%'
-                    }}
-                        contentContainerStyle={{
-                            alignItems: 'center'
-                        }}
-                    >
+            <View style={styles.body}>
+                <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center' }}>
+                    <View style={styles.formContainer}>
+                        <View style={styles.formInputContainer}>
+                            <TextInput
+                                textContentType="emailAddress"
+                                keyboardType="email-address"
+                                autoCompleteType="email"
+                                autoCapitalize='none'
+                                placeholder={loc.emailField(props.lang)}
+                                editable={!isLoading}
+                                style={[
+                                    styles.formInput,
+                                    {
+                                        backgroundColor: props.isLoading ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)'
+                                    }
+                                ]}
+                                onChangeText={(email) => { setEmail(email) }}
+                                value={email}
+                            />
 
+                            <TextInput
+                                textContentType="password"
+                                secureTextEntry={true}
+                                placeholder={loc.passwordField(props.lang)}
+                                editable={!isLoading}
+                                style={[
+                                    styles.formInput,
+                                    {
+                                        marginBottom: 0,
+                                        backgroundColor: props.isLoading ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)'
+                                    }
+                                ]}
+                                onChangeText={(password) => { setPassword(password) }}
+                                value={password}
+                            />
 
-                        <View style={styles.formContainer}>
-
-                            <View style={styles.formInputContainer}>
-                                <TextInput
-                                    textContentType="emailAddress"
-                                    keyboardType="email-address"
-                                    autoCompleteType="email"
-                                    placeholder={loc.emailField(this.props.lang)}
-                                    editable={!this.props.isLoading}
-                                    style={[
-                                        styles.formInput,
-                                        styles.lowercase,
-                                        {
-                                            backgroundColor: this.props.isLoading ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)'
-                                        }
-                                    ]}
-                                    onChangeText={(email) => this.setState({ email })}
-                                    value={this.state.email}
-                                />
-
-                                <TextInput
-                                    textContentType="password"
-                                    secureTextEntry={true}
-                                    placeholder={loc.passwordField(this.props.lang)}
-                                    editable={!this.props.isLoading}
-                                    style={[
-                                        styles.formInput,
-                                        {
-                                            marginBottom: 0,
-                                            backgroundColor: this.props.isLoading ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)'
-                                        }
-                                    ]}
-                                    onChangeText={(password) => this.setState({ password })}
-                                    value={this.state.password}
-                                />
-
-                                <Text
-                                    style={{
-                                        padding: this.state.formMsg === '' ? 0 : 5,
-                                        backgroundColor: this.state.formMsg === '' ? 'transparent' : 'rgba(255,255,255,0.3)',
-                                        width: '100%',
-                                        color: 'darkred',
-                                        fontWeight: 'bold',
-                                        textAlign: 'center',
-                                        borderRadius: 5,
-                                        marginTop: 10
-                                    }}
-                                >
-                                    {this.state.formMsg}
-                                </Text>
-                            </View>
-
-                            <TouchableOpacity style={styles.submitButton} onPress={this.submitLogin}>
-                                <Text style={{ color: 'white', fontSize: 18, textTransform: 'uppercase' }}>{loc.submitButton(this.props.lang)}</Text>
-                            </TouchableOpacity>
-
-                            <View>
-                                <Text
-                                    style={{ marginBottom: 15, color: 'white', textDecorationLine: 'underline', fontWeight: 'bold', fontSize: 18 }}
-                                    onPress={this.goToPasswordRecovery} >
-                                    {loc.forgotPasswordButton(this.props.lang)}
-                                </Text>
-                            </View>
-
-                            <View style={styles.formFooter}>
-                                <Text style={{ fontSize: 18, fontStyle: 'italic', textAlign: 'center', fontWeight: 'bold' }}>
-                                    {loc.noAccountText(this.props.lang) + ' '}
-
-                                    <Text style={{ color: 'white', textDecorationLine: 'underline', fontWeight: 'bold' }} onPress={this.goToRegistration} >
-                                        {loc.registerButton(this.props.lang)}
-                                    </Text>
-                                </Text>
-                            </View>
+                            <Text
+                                style={{
+                                    padding: formMsg === '' ? 0 : 5,
+                                    backgroundColor: formMsg === '' ? 'transparent' : 'rgba(255,255,255,0.3)',
+                                    width: '100%',
+                                    color: 'darkred',
+                                    fontWeight: 'bold',
+                                    textAlign: 'center',
+                                    borderRadius: 5,
+                                    marginTop: 10
+                                }}
+                            >
+                                {formMsg}
+                            </Text>
                         </View>
-                    </ScrollView>
-                </View>
-            </ImageBackground>
-        )
-    }
+
+                        <TouchableOpacity style={styles.submitButton} onPress={() => { submitLogin() }}>
+                            <Text style={{ color: 'white', fontSize: 18, textTransform: 'uppercase' }}>{loc.submitButton(props.lang)}</Text>
+                        </TouchableOpacity>
+
+                        <View>
+                            <Text
+                                style={{ marginBottom: 15, color: 'white', textDecorationLine: 'underline', fontWeight: 'bold', fontSize: 18 }}
+                                onPress={() => { goToPasswordRecovery() }} >
+                                {loc.forgotPasswordButton(props.lang)}
+                            </Text>
+                        </View>
+
+                        <View style={styles.formFooter}>
+                            <Text style={{ fontSize: 18, fontStyle: 'italic', textAlign: 'center', fontWeight: 'bold' }}>
+                                {loc.noAccountText(props.lang) + ' '}
+
+                                <Text style={{ color: 'white', textDecorationLine: 'underline', fontWeight: 'bold' }} onPress={() => { goToRegistration() }} >
+                                    {loc.registerButton(props.lang)}
+                                </Text>
+                            </Text>
+                        </View>
+                    </View>
+                </ScrollView>
+            </View>
+        </ImageBackground>
+    )
 }
 
 const mapStateToProps = (state) => {
@@ -316,13 +274,11 @@ const mapStateToProps = (state) => {
         lang: state.appReducer.lang,
         serverUrl: state.appReducer.serverUrl,
         user: state.userReducer.user,
-        isLoading: state.appReducer.isLoading
     }
 }
 
 export default connect(mapStateToProps, {
     setUser,
     setLanguageEs,
-    setLanguageEn,
-    setIsLoading
+    setLanguageEn
 })(Login)

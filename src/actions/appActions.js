@@ -18,3 +18,10 @@ export const setIsLoading = (isLoading) => {
         payload: isLoading
     }
 }
+
+export const setSocket = (socket) => {
+    return {
+        type: appConstants.SET_SOCKET,
+        payload: socket
+    }
+}
